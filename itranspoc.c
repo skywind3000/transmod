@@ -14,6 +14,7 @@
 // Jun. 25 2011   skywind  implement channel subscribe
 // Sep. 09 2011   skywind  new: socket buf resize, congestion ctrl.
 // Nov. 30 2011   skywind  new: channel broadcasting (v2.40)
+// Dec. 23 2011   skywind  new: rc4 crypt (v2.43)
 //
 // NOTES： 
 // 网络传输库 TML<传输模块>，建立 客户/频道的通信模式，提供基于多频道
@@ -122,6 +123,13 @@ int itm_event_accept(int hmode)
 	itmd->initok = 0;
 	itmd->ccnum = 0;
 	itmd->inwlist = 0;
+
+	#ifndef IDISABLE_RC4
+	itmd->rc4_send_x = -1;
+	itmd->rc4_send_y = -1;
+	itmd->rc4_recv_x = -1;
+	itmd->rc4_recv_y = -1;
+	#endif
 
 	if (hmode == ITMD_OUTER_HOST) itm_outer_cnt++;
 	else itm_inner_cnt++;
@@ -302,7 +310,7 @@ int itm_event_send(struct ITMD *itmd)
 	switch (itmd->mode)
 	{
 	case ITMD_OUTER_CLIENT:
-		size = itm_trysend(itmd->fd, &itmd->wstream);
+		size = itm_trysend(itmd);
 		if (size < 0) {
 			itm_log(ITML_INFO, "closing connection for remote lost: %d", 
 				(itm_error == IEAGAIN)? 0 : itm_error);
@@ -320,7 +328,7 @@ int itm_event_send(struct ITMD *itmd)
 		break;
 
 	case ITMD_INNER_CLIENT:
-		size = itm_trysend(itmd->fd, &itmd->wstream);
+		size = itm_trysend(itmd);
 		if (size < 0) {
 			itm_log(ITML_INFO, "closing connection for remote lost: %d", 
 				(itm_error == IEAGAIN)? 0 : itm_error);
@@ -392,7 +400,7 @@ int itm_event_recv(struct ITMD *itmd)
 		}
 	}
 
-	retval = itm_tryrecv(itmd->fd, &itmd->rstream);
+	retval = itm_tryrecv(itmd);
 	if (retval == 0) return 0;
 
 	if (retval < 0) {
@@ -734,11 +742,26 @@ int itm_on_data(struct ITMD *itmd, long wparam, long lparam, long length)
 
 	// 如果可以发送：不需要判断缓存大小或者判断成功
 	if (cansend) {
-		itm_send(to, ptr, dlength + itm_hdrsize);
+		long sendlen = dlength + itm_hdrsize;
+		char *data = ptr;
+
+		#ifndef IDISABLE_RC4
+		// 如果有加密
+		if (to->rc4_send_x >= 0 && to->rc4_send_y >= 0) {
+			data = itm_crypt;
+			itm_rc4_crypt(to->rc4_send_box, &to->rc4_send_x, &to->rc4_recv_y,
+				(const unsigned char*)ptr, (unsigned char*)itm_crypt, sendlen);
+		}
+		#endif
+
+		// 送入发送缓存
+		itm_send(to, data, sendlen);
+
 		if (itm_logmask & ITML_DATA) {
 			itm_log(ITML_DATA, "channel %d send %ld bytes data to %s hid=%XH", 
 				itmd->channel, dlength + itm_hdrsize, itm_epname(&to->remote), to->hid);
 		}
+
 		itm_bcheck(to);
 		itm_stat_send++;
 	}	else {
@@ -1121,6 +1144,36 @@ int itm_on_syscd(struct ITMD *itmd, long wparam, long lparam, long length)
 				text1, text2, text3);
 		}
 		break;
+	
+	case ITMS_RC4SKEY:
+	case ITMS_RC4RKEY:
+		{
+			#ifndef IDISABLE_RC4
+			struct ITMD *target = itm_hid_itmd(lparam);
+			unsigned char *key = (unsigned char*)itm_data + itm_headlen;
+			int keylen = (length >= itm_headlen)? length - itm_headlen : 0;
+			if (target == NULL) {
+				itm_log(ITML_WARNING, "[WARNING] can not set rc4 key to hid=%XH channel=%d",
+					lparam, itmd->channel);
+			}
+			if (target->mode != ITMD_OUTER_CLIENT) {
+				itm_log(ITML_ERROR, "[ERROR] channel %d cannot set rc4 key for hid=%HX",
+					itmd->channel, lparam);
+				break;
+			}
+			if (wparam == ITMS_RC4SKEY) {
+				itm_rc4_init(target->rc4_send_box, &target->rc4_send_x, &target->rc4_send_y, key, keylen);
+			}
+			else {
+				itm_rc4_init(target->rc4_recv_box, &target->rc4_recv_x, &target->rc4_recv_y, key, keylen);
+			}
+			itm_log(ITML_INFO, "system info: channel %d set %s crypt key for hid=%XH",
+				itmd->channel, (wparam == ITMS_RC4SKEY)? "send" : "recv", lparam);
+			#else
+			itm_log(ITML_ERROR, "[ERROR] rc4 crypt is not supported");
+			#endif
+		}
+		break;
 	}
 
 	return retval;
@@ -1333,5 +1386,7 @@ int itm_on_broadcast(struct ITMD *itmd, long wparam, long lparam, long length)
 
 	return 0;
 }
+
+
 
 

@@ -14,6 +14,7 @@
 // Jun. 25 2011   skywind  implement channel subscribe
 // Sep. 09 2011   skywind  new: socket buf resize, congestion ctrl.
 // Nov. 30 2011   skywind  new: channel broadcasting (v2.40)
+// Dec. 23 2011   skywind  new: rc4 crypt (v2.43)
 //
 // NOTES： 
 // 网络传输库 TML<传输模块>，建立 客户/频道的通信模式，提供基于多频道 
@@ -80,7 +81,8 @@ long itm_sockrcvo = -1;			// 外部套接字发送缓存大小
 struct IVECTOR itm_hostv;		// 内部Channel列表矢量
 struct IVECTOR itm_datav;		// 内部数据矢量
 struct ITMD **itm_host = NULL;	// 内部Channel列表指针
-char *itm_data = NULL;			// 内部数据列表指针
+char *itm_data = NULL;			// 内部数据字节指针
+char *itm_crypt = NULL;			// 内部数据加密指针
 long  itm_hostc= 0;				// 内部Channel数量
 long  itm_datac= 0;				// 内部数据长度
 
@@ -146,8 +148,9 @@ static int itm_socket_create(void);
 static int itm_socket_release(void);
 static int itm_timer_routine(void);
 
-long itm_trysend(int fd, struct IMSTREAM *stream);
-long itm_tryrecv(int fd, struct IMSTREAM *stream);
+long itm_trysend(struct ITMD *itmd);	// 尝试发送 wstream
+long itm_tryrecv(struct ITMD *itmd);	// 尝试接收 rstream
+
 
 //=====================================================================
 // Interface Functions Implement
@@ -713,9 +716,11 @@ char itm_zdata[ITM_BUFSIZE];
 //---------------------------------------------------------------------
 // itm_trysend
 //---------------------------------------------------------------------
-long itm_trysend(int fd, struct IMSTREAM *stream)
+long itm_trysend(struct ITMD *itmd)
 {
+	struct IMSTREAM *stream = &itmd->wstream;
 	long len, total = 0, ret = 3;
+	int fd = itmd->fd;
 	void*lptr;
 
 	assert(stream && fd >= 0);
@@ -739,19 +744,32 @@ long itm_trysend(int fd, struct IMSTREAM *stream)
 //---------------------------------------------------------------------
 // itm_tryrecv
 //---------------------------------------------------------------------
-long itm_tryrecv(int fd, struct IMSTREAM *stream)
+long itm_tryrecv(struct ITMD *itmd)
 {
+	struct IMSTREAM *stream = &itmd->rstream;
 	long total = 0, ret = 3, val = 0;
+	int fd = itmd->fd;
 
 	assert(stream && fd >= 0);
+
 	for (ret = 1; ret > 0; ) {
 		itm_error = 0;
 		ret = recv(fd, itm_zdata, ITM_BUFSIZE, 0);
 		if (ret == 0) ret = -1;
 		else if (ret < 0) itm_error = aprerrno, ret = (itm_error == IEAGAIN)? 0 : -1;
 		if (ret <= 0) break;
+		
+		#ifndef IDISABLE_RC4
+		// 判断是否加密
+		if (itmd->rc4_recv_x >= 0 && itmd->rc4_recv_y >= 0) {
+			itm_rc4_crypt(itmd->rc4_recv_box, &itmd->rc4_recv_x, &itmd->rc4_recv_y,
+				(const unsigned char*)itm_zdata, (unsigned char*)itm_zdata, ret);
+		}
+		#endif
+
 		val = ims_write(stream, itm_zdata, ret);
 		assert(val == ret);
+
 		total += val;
 		if (itm_fastmode != 0 && ret < ITM_BUFSIZE) break;
 	}
@@ -814,10 +832,13 @@ int itm_wchannel(int index, struct ITMD *itmd)
 //---------------------------------------------------------------------
 long itm_dsize(long length)
 {
+	long size = length;
+	length <<= 1;
 	if (length >= (long)itm_datav.length) {
 		iv_resize(&itm_datav, length);
 		itm_data = (char*)itm_datav.data;
 	}
+	itm_crypt = itm_data + size;
 	return 0;
 }
 
@@ -1112,6 +1133,65 @@ int itm_book_empty(void)
 	}
 	return 0;
 }
+
+
+//---------------------------------------------------------------------
+// RC4: 初始化
+//---------------------------------------------------------------------
+void itm_rc4_init(unsigned char *box, int *x, int *y, 
+	const unsigned char *key, int keylen)
+{
+	int X, Y, i, j, k, a;
+	if (keylen <= 0 || key == NULL) {
+		X = -1;
+		Y = -1;
+	}	else {
+		X = Y = 0;
+		j = k = 0;
+		for (i = 0; i < 256; i++) {
+			box[i] = (unsigned char)i;
+		}
+		for (i = 0; i < 256; i++) {
+			a = box[i];
+			j = (unsigned char)(j + a + key[k]);
+			box[i] = box[j];
+			box[j] = a;
+			if (++k >= keylen) k = 0;
+		}
+	}
+	x[0] = X;
+	y[0] = Y;
+}
+
+//---------------------------------------------------------------------
+// RC4: 加密/解密
+//---------------------------------------------------------------------
+void itm_rc4_crypt(unsigned char *box, int *x, int *y,
+	const unsigned char *src, unsigned char *dst, long size)
+{
+	int X = x[0];
+	int Y = y[0];
+	if (X < 0 || Y < 0) {			// 不加密的情况
+		if (src != dst) {
+			memmove(dst, src, size);
+		}
+	}
+	else {							// 加密的情况
+		int a, b; 
+		for (; size > 0; src++, dst++, size--) {
+			X = (unsigned char)(X + 1);
+			a = box[X];
+			Y = (unsigned char)(Y + a);
+			box[X] = box[Y];
+			b = box[Y];
+			box[Y] = a;
+			dst[0] = src[0] ^ box[(unsigned char)(a + b)];
+		}
+		x[0] = X;
+		y[0] = Y;
+	}
+}
+
 
 //---------------------------------------------------------------------
 // utils
