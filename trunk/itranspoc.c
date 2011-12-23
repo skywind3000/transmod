@@ -749,7 +749,7 @@ int itm_on_data(struct ITMD *itmd, long wparam, long lparam, long length)
 		// 如果有加密
 		if (to->rc4_send_x >= 0 && to->rc4_send_y >= 0) {
 			data = itm_crypt;
-			itm_rc4_crypt(to->rc4_send_box, &to->rc4_send_x, &to->rc4_recv_y,
+			itm_rc4_crypt(to->rc4_send_box, &to->rc4_send_x, &to->rc4_send_y,
 				(const unsigned char*)ptr, (unsigned char*)itm_crypt, sendlen);
 		}
 		#endif
