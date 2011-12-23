@@ -14,6 +14,7 @@
 // Jun. 25 2011   skywind  implement channel subscribe
 // Sep. 09 2011   skywind  new: socket buf resize, congestion ctrl.
 // Nov. 30 2011   skywind  new: channel broadcasting (v2.40)
+// Dec. 23 2011   skywind  new: rc4 crypt (v2.43)
 //
 // NOTES： 
 // 网络传输库 TML<传输模块>，建立 客户/频道的通信模式，提供基于多频道
@@ -43,7 +44,7 @@
 extern "C" {
 #endif
 
-#define ITMV_VERSION 0x242	// 传输模块版本号
+#define ITMV_VERSION 0x243	// 传输模块版本号
 
 //=====================================================================
 // Global Variables Definition
@@ -161,6 +162,14 @@ struct ITMD
 	unsigned long cnt_tcpw;		// TCP发送计数器
 	unsigned long cnt_udpr;		// UDP接收计数器
 	unsigned long cnt_udpw;		// UDP发送计数器
+#ifndef IDISABLE_RC4			// 判断 RC4功能是否被禁止
+	int rc4_send_x;				// RC4 发送加密位置1
+	int rc4_send_y;				// RC4 发送加密位置2
+	int rc4_recv_x;				// RC4 接收加密位置1
+	int rc4_recv_y;				// RC4 接收加密位置2
+	unsigned char rc4_send_box[256];	// RC4 发送加密BOX
+	unsigned char rc4_recv_box[256];	// RC4 接收加密BOX
+#endif
 };
 
 
@@ -196,7 +205,8 @@ extern struct IMPOOL itm_mem;	// 内存页面分配器
 extern struct IVECTOR itm_datav;	// 内部数据矢量
 extern struct IVECTOR itm_hostv;	// 内部Channel列表矢量
 extern struct ITMD **itm_host;		// 内部Channel列表指针
-extern char *itm_data;				// 内部数据列表指针
+extern char *itm_data;				// 内部数据字节指针
+extern char *itm_crypt;				// 内部数据加密指针
 
 
 extern struct IMSTREAM itm_dgramdat;	// 数据报缓存
@@ -220,9 +230,9 @@ int itm_timer(void);				// 时钟控制
 //=====================================================================
 // Private Method Definition
 //=====================================================================
-long itm_trysend(int fd, struct IMSTREAM *stream);	// 尝试发送
-long itm_tryrecv(int fd, struct IMSTREAM *stream);	// 尝试接收
-long itm_trysendto(void);							// 尝试发送数据报
+long itm_trysend(struct ITMD *itmd);	// 尝试发送 wstream
+long itm_tryrecv(struct ITMD *itmd);	// 尝试接收 rstream
+long itm_trysendto(void);				// 尝试发送数据报
 
 extern long itm_local1;		// 局部变量用作临时参数定义1
 extern long itm_local2;		// 局部变量用作临时参数定义2
@@ -254,6 +264,10 @@ int itm_book_add(int category, int channel);	// 增加关注
 int itm_book_del(int category, int channel);	// 取消关注
 int itm_book_reset(int channel);				// 频道全部撤销关注
 int itm_book_empty(void);						// 关注复位
+
+// RC4 初始化及加密
+void itm_rc4_init(unsigned char *box, int *x, int *y, const unsigned char *key, int keylen);
+void itm_rc4_crypt(unsigned char *box, int *x, int *y, const unsigned char *src, unsigned char *dst, long size);
 
 
 //---------------------------------------------------------------------
@@ -358,6 +372,8 @@ void itm_lltoa(char *dst, apr_int64 x);
 #define ITMS_BOOKDEL	13	// 取消订阅
 #define ITMS_BOOKRST	14	// 清空订阅
 #define ITMS_STATISTIC	15	// 统计信息
+#define ITMS_RC4SKEY	16	// 设置发送KEY (st, hid) key
+#define ITMS_RC4RKEY	17	// 设置接收KEY (st, hid) key
 #define ITMS_NODELAY	1	// 连接控制：设置立即发送模式
 #define ITMS_NOPUSH		2	// 连接控制：设置数据流塞子
 
@@ -417,7 +433,6 @@ int itm_on_syscd(struct ITMD *itmd, long wparam, long lparam, long length);
 int itm_on_dgram(struct ITMD *itmd, long wparam, long lparam, long length);
 int itm_on_ioctl(struct ITMD *itmd, long wparam, long lparam, long length);
 int itm_on_broadcast(struct ITMD *itmd, long wparam, long lparam, long length);
-
 
 
 //---------------------------------------------------------------------
