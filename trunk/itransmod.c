@@ -15,6 +15,7 @@
 // Sep. 09 2011   skywind  new: socket buf resize, congestion ctrl.
 // Nov. 30 2011   skywind  new: channel broadcasting (v2.40)
 // Dec. 23 2011   skywind  new: rc4 crypt (v2.43)
+// Dec. 28 2011   skywind  rc4 enchance (v2.44)
 //
 // NOTES： 
 // 网络传输库 TML<传输模块>，建立 客户/频道的通信模式，提供基于多频道 
