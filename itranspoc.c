@@ -1155,6 +1155,7 @@ int itm_on_syscd(struct ITMD *itmd, long wparam, long lparam, long length)
 			if (target == NULL) {
 				itm_log(ITML_WARNING, "[WARNING] can not set rc4 key to hid=%XH channel=%d",
 					lparam, itmd->channel);
+				break;
 			}
 			if (target->mode != ITMD_OUTER_CLIENT) {
 				itm_log(ITML_ERROR, "[ERROR] channel %d cannot set rc4 key for hid=%HX",

@@ -44,7 +44,7 @@
 extern "C" {
 #endif
 
-#define ITMV_VERSION 0x243	// 传输模块版本号
+#define ITMV_VERSION 0x244	// 传输模块版本号
 
 //=====================================================================
 // Global Variables Definition
