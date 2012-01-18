@@ -34,7 +34,7 @@ APR_DECLARE(long) apr_module_open(apr_module *module, const char *mod_file)
 	#ifdef __unix
 	handle = dlopen(mod_file, RTLD_LAZY);
 	#else
-	handle = (void*)LoadLibrary(mod_file);
+	handle = (void*)LoadLibraryA(mod_file);
 	#endif
 	*module = handle;
 
