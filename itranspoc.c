@@ -39,21 +39,29 @@ int itm_event_accept(int hmode)
 	struct sockaddr remote;
 	struct sockaddr_in *addr;
 	struct ITMD *itmd, *channel;
-	int host = (hmode == ITMD_OUTER_HOST)? itm_outer_sock : itm_inner_sock;
-	int sock = -1, node = 0, retval, r1, r2, result = 0;
+	int sock = -1, node = 0, retval;
+	int host, r1, r2, result = 0;
 	unsigned long noblock = 1;
 	unsigned long revalue = 1;
 	unsigned long bufsize = 0;
 	long sockrcv, socksnd;
 	
+	// 判断套接字并接受连接
+	host = (hmode == ITMD_OUTER_HOST)? itm_outer_sock : itm_inner_sock;
 	sock = apr_accept(host, &remote);
 
+	// 处理失败
 	if (sock < 0) {
-		itm_log(ITML_ERROR, 
-			"[ERROR] can not accept new %s connection errno=%d", 
-			(hmode == ITMD_OUTER_HOST)? "user" : "channel", apr_errno());
+		static apr_int64 last_log_time = 0;		// 判断时间避免疯狂刷日志
+		apr_int64 current = apr_timex();
+		if (current - last_log_time >= 100) {
+			itm_log(ITML_ERROR, "[ERROR] can not accept new %s connection errno=%d", 
+				(hmode == ITMD_OUTER_HOST)? "user" : "channel", apr_errno());
+			last_log_time = current;
+		}
 		return -1;
 	}
+
 	if (hmode == ITMD_OUTER_HOST) {
 		if (itm_outer_cnt >= itm_outer_max) {
 			apr_close(sock);
@@ -401,6 +409,7 @@ int itm_event_recv(struct ITMD *itmd)
 		}
 	}
 
+	// 从网络接受所有数据
 	retval = itm_tryrecv(itmd);
 	if (retval == 0) return 0;
 
@@ -416,8 +425,9 @@ int itm_event_recv(struct ITMD *itmd)
 
 	// 处理接收下来的所有包
 	for (;;) {
-		length = itm_dataok(&itmd->rstream);
-		if (length == 0) break;
+		// 判断是否有一个完整的包
+		length = itm_dataok(itmd);
+		if (length == 0) break;		// 没有就返回
 		if (length < 0) { 
 			itm_log(ITML_INFO, "connection data error %s hid=%XH channel=%d", 
 				itm_epname(&itmd->remote), itmd->hid, itmd->channel);
@@ -430,11 +440,20 @@ int itm_event_recv(struct ITMD *itmd)
 			itm_event_close(itmd, 2002);
 			break;
 		}
-		ims_read(&itmd->rstream, itm_data, length);
-		if (itmd->mode == ITMD_OUTER_CLIENT) 
-			retval = itm_data_outer(itmd);
-		else 
+
+		if (itmd->mode == ITMD_INNER_CLIENT) {
+			ims_read(&itmd->rstream, itm_data, length);
 			retval = itm_data_inner(itmd);
+		}
+		else {
+			if (itm_headmod != ITMH_RAWDATA) {		// 带长度数据
+				ims_read(&itmd->rstream, itm_data, length);
+			}	else {								// 不带长度数据
+				ims_read(&itmd->rstream, itm_data + itm_hdrsize, length);
+				itm_size_set(itm_data, length + itm_hdrsize);
+			}
+			retval = itm_data_outer(itmd);
+		}
 		if (retval < 0) { 
 			itm_event_close(itmd, 2001); 
 			break; 
@@ -514,8 +533,10 @@ int itm_data_outer(struct ITMD *itmd)
 		itm_send(channel, itm_data + length, itm_headlen);
 		itm_send(channel, itm_data + itm_hdrsize, length - itm_hdrsize);
 		if (itm_logmask & ITML_DATA) {
-			itm_log(ITML_DATA, "recv %d bytes data from %s hid=%XH channel=%d", 
-				length, itm_epname(&itmd->remote), itmd->hid, itmd->channel);
+			long logsize = length;
+			if (itm_headmod == ITMH_RAWDATA) logsize -= itm_hdrsize;
+			itm_log(ITML_DATA, "recv %ld bytes data from %s hid=%XH channel=%d", 
+				logsize, itm_epname(&itmd->remote), itmd->hid, itmd->channel);
 		}
 	}
 
@@ -743,15 +764,24 @@ int itm_on_data(struct ITMD *itmd, long wparam, long lparam, long length)
 
 	// 如果可以发送：不需要判断缓存大小或者判断成功
 	if (cansend) {
-		long sendlen = dlength + itm_hdrsize;
-		char *data = ptr;
+		long sendlen;
+		char *data;
+
+		// 判断是否是 RAWDATA模式：
+		if (itm_headmod != ITMH_RAWDATA) {
+			data = ptr;
+			sendlen = dlength + itm_hdrsize;
+		}	else {
+			data = ptr + itm_hdrsize;
+			sendlen = dlength;
+		}
 
 		#ifndef IDISABLE_RC4
 		// 如果有加密
 		if (to->rc4_send_x >= 0 && to->rc4_send_y >= 0) {
-			data = itm_crypt;
 			itm_rc4_crypt(to->rc4_send_box, &to->rc4_send_x, &to->rc4_send_y,
-				(const unsigned char*)ptr, (unsigned char*)itm_crypt, sendlen);
+				(const unsigned char*)data, (unsigned char*)itm_crypt, sendlen);
+			data = itm_crypt;
 		}
 		#endif
 
@@ -759,8 +789,10 @@ int itm_on_data(struct ITMD *itmd, long wparam, long lparam, long length)
 		itm_send(to, data, sendlen);
 
 		if (itm_logmask & ITML_DATA) {
+			long logsize = dlength + itm_hdrsize;
+			if (itm_headmod == ITMH_RAWDATA) logsize = dlength;
 			itm_log(ITML_DATA, "channel %d send %ld bytes data to %s hid=%XH", 
-				itmd->channel, dlength + itm_hdrsize, itm_epname(&to->remote), to->hid);
+				itmd->channel, logsize, itm_epname(&to->remote), to->hid);
 		}
 
 		itm_bcheck(to);
@@ -796,6 +828,12 @@ int itm_on_close(struct ITMD *itmd, long wparam, long lparam, long length)
 			wparam, itmd->channel);
 		return 0;
 	}
+
+	// 最后尝试发送一次数据
+	if (to->wstream.size > 0) {
+		itm_trysend(to);
+	}
+
 	itm_log(ITML_INFO, "channel %d closing user %s hid=%XH: %d", 
 		itmd->channel, itm_epname(&to->remote), to->hid, lparam);
 

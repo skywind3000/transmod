@@ -58,7 +58,7 @@ APR_DECLARE(void*) apr_module_symbol(apr_module module, const char *entry)
 	#ifdef __unix
 	startp = dlsym(module, entry);
 	#else
-	startp = GetProcAddress((HINSTANCE)module, entry);
+	startp = (void*)GetProcAddress((HINSTANCE)module, entry);
 	#endif
 	return startp;
 }

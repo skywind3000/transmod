@@ -265,6 +265,10 @@ int itm_startup(void)
 		itm_headlen = 11;
 		itm_hdrsize = 1;
 		break;
+	case ITMH_RAWDATA:
+		itm_headlen = 14;
+		itm_hdrsize = 4;
+		break;
 	default:
 		itm_headmod = ITMH_WORDLSB;
 		itm_headlen = 12;
@@ -282,10 +286,15 @@ int itm_startup(void)
 		itm_headinc = itm_hdrsize;
 		itm_headmsk = 0;
 	}
-	else {
+	else if (itm_headmod < ITMH_RAWDATA) {
 		itm_headint = ITMH_DWORDLSB;
 		itm_headinc = 0;
 		itm_headmsk = 1;
+	}
+	else {
+		itm_headint = ITMH_DWORDLSB;
+		itm_headinc = 0;
+		itm_headmsk = 0;
 	}
 
 	for (i = 0; i < 256; i++) {
