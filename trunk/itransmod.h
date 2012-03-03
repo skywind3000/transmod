@@ -16,6 +16,7 @@
 // Nov. 30 2011   skywind  new: channel broadcasting (v2.40)
 // Dec. 23 2011   skywind  new: rc4 crypt (v2.43)
 // Dec. 28 2011   skywind  rc4 enchance (v2.44)
+// Mar. 03 2012   skywind  raw data header (v2.45)
 //
 // NOTES： 
 // 网络传输库 TML<传输模块>，建立 客户/频道的通信模式，提供基于多频道
@@ -45,7 +46,7 @@
 extern "C" {
 #endif
 
-#define ITMV_VERSION 0x244	// 传输模块版本号
+#define ITMV_VERSION 0x245	// 传输模块版本号
 
 //=====================================================================
 // Global Variables Definition
@@ -391,6 +392,7 @@ void itm_lltoa(char *dst, apr_int64 x);
 #define ITMH_EBYTELSB	10		// 头部标志：单字节LSB（不包含自己）
 #define ITMH_EBYTEMSB	11		// 头部标志：单字节MSB（不包含自己）
 #define ITMH_DWORDMASK	12		// 头部标志：4字节LSB（包含自己和掩码）
+#define ITMH_RAWDATA	13		// 头部标志：对外无头部，对内4字节LSB
 
 
 #define ITML_BASE		0x01	// 日志代码：基本
@@ -736,11 +738,21 @@ static inline int itm_param_set(int offset, long length, short cmd, long wparam,
 }
 
 
-static inline long itm_dataok(struct IMSTREAM *stream)
+static inline long itm_dataok(struct ITMD *itmd)
 {
+	struct IMSTREAM *stream = &(itmd->rstream);
 	long len;
 	char buf[4];
 	void *ptr = (void*)buf;
+
+	if (itmd->mode == ITMD_OUTER_CLIENT) {
+		if (itm_headmod == ITMH_RAWDATA) {
+			long size = stream->size;
+			long limit = (ITM_BUFSIZE < itm_datamax)? ITM_BUFSIZE : itm_datamax;
+			if (size < limit) return size;
+			return limit;
+		}
+	}
 
 	len = ims_peek(stream, buf, itm_hdrsize);
 	if (len < itm_hdrsize) return 0;
