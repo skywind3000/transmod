@@ -735,7 +735,7 @@ int itm_on_data(struct ITMD *itmd, long wparam, long lparam, long length)
 		}
 		return 0;
 	}
-	if (to->channel != itmd->channel && itmd->channel != 0 && itm_headmsk == 0) { 
+	if (to->channel != itmd->channel && itmd->channel != 0 && itm_headmod < ITMH_DWORDMASK) { 
 		if (itm_logmask & ITML_WARNING) {
 			itm_log(ITML_WARNING, 
 				"[WARNING] cannot send data to hid %XH from channel %d", 
@@ -822,7 +822,7 @@ int itm_on_close(struct ITMD *itmd, long wparam, long lparam, long length)
 			wparam, itmd->channel);
 		return 0;
 	}
-	if (to->channel != itmd->channel && itmd->channel != 0 && itm_headmsk == 0) {
+	if (to->channel != itmd->channel && itmd->channel != 0 && itm_headmod < ITMH_DWORDMASK) {
 		itm_log(ITML_WARNING, 
 			"[WARNING] cannot close hid %XH from channel %d for hid not in channel", 
 			wparam, itmd->channel);
@@ -858,7 +858,7 @@ int itm_on_tag(struct ITMD *itmd, long wparam, long lparam, long length)
 			wparam, itmd->channel);
 		return 0; 
 	}
-	if (to->channel != itmd->channel && itmd->channel != 0) { 
+	if (to->channel != itmd->channel && itmd->channel != 0 && itm_headmod < ITMH_DWORDMASK) { 
 		itm_log(ITML_WARNING, 
 			"[WARNING] cannot set tag to hid %XH from channel %d form hid not in channel", 
 			wparam, itmd->channel);
@@ -1001,7 +1001,7 @@ int itm_on_dgram(struct ITMD *itmd, long wparam, long lparam, long length)
 		}
 		return 0;
 	}
-	if (to->channel != itmd->channel && itmd->channel != 0) { 
+	if (to->channel != itmd->channel && itmd->channel != 0 && itm_headmod < ITMH_DWORDMASK) { 
 		if (itm_logmask & ITML_WARNING) {
 			itm_log(ITML_WARNING, 
 				"[WARNING] cannot send dgram to hid %XH from channel %d", 
