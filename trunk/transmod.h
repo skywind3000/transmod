@@ -131,6 +131,13 @@ APR_MODULE(const char*) ctm_get_date(void);
 // 取得编译时间
 APR_MODULE(const char*) ctm_get_time(void);
 
+// 取得信息：两个参数用于取得外部内部的连接数，返回值是服务运行了多少秒，
+APR_MODULE(long) ctm_get_info(int *outer_cnt, int *inner_cnt);
+
+// 统计信息：得到发送了多少包，收到多少包，丢弃多少包（限制发送缓存模式）
+// 注意：三个指针会被填充 64位整数。
+APR_MODULE(void) ctm_get_stat(void *stat_send, void *stat_recv, void *stat_discard);
+
 
 #ifdef __cplusplus
 }
