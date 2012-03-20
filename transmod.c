@@ -325,3 +325,32 @@ APR_MODULE(const char*) ctm_get_time(void)
 	return __TIME__;
 }
 
+
+// 取得信息：返回服务运行了多少秒，两个参数用于取得外部内部的连接数
+APR_MODULE(long) ctm_get_info(int *outer_cnt, int *inner_cnt)
+{
+	if (outer_cnt) outer_cnt[0] = itm_outer_cnt;
+	if (inner_cnt) inner_cnt[0] = itm_inner_cnt;
+	return itm_wtime;
+}
+
+
+// 统计信息：得到发送了多少包，收到多少包，丢弃多少包（限制发送缓存模式）
+// 注意：三个指针会被填充 64位整数。
+APR_MODULE(void) ctm_get_stat(void *stat_send, void *stat_recv, void *stat_discard)
+{
+	if (stat_send) {
+		apr_int64 *ptr = (apr_int64*)stat_send;
+		ptr[0] = itm_stat_send;
+	}
+	if (stat_recv) {
+		apr_int64 *ptr = (apr_int64*)stat_recv;
+		ptr[0] = itm_stat_recv;
+	}
+	if (stat_discard) {
+		apr_int64 *ptr = (apr_int64*)stat_discard;
+		ptr[0] = itm_stat_discard;
+	}
+}
+
+

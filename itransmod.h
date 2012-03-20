@@ -767,7 +767,7 @@ static inline long itm_dataok(struct ITMD *itmd)
 
 static inline void itm_write_dword(void *ptr, apr_uint32 dword)
 {
-	if (itm_headmod & 1) {
+	if (itm_headint & 1) {
 		iencode32u_msb((char*)ptr, dword);
 	}	else {
 		iencode32u_lsb((char*)ptr, dword);
