@@ -39,6 +39,7 @@ extern "C" {
 #define CTMS_CUCOUNT		1	// 现在外部连接数
 #define CTMS_CHCOUNT		2	// 现在频道连接数
 #define CTMS_WTIME			3	// 取得服务运行时间
+#define CTMS_STIME			4	// 取得开始服务时间
 
 #define CTM_STOPPED		0	// 服务状态：停止
 #define CTM_STARTING	1	// 服务状态：启动中
@@ -47,6 +48,7 @@ extern "C" {
 
 #define CTM_OK			0	// 没有错误
 #define CTM_ERROR		1	// 发生错误
+
 
 //---------------------------------------------------------------------
 // Service Method Definition
@@ -130,9 +132,6 @@ APR_MODULE(const char*) ctm_get_date(void);
 
 // 取得编译时间
 APR_MODULE(const char*) ctm_get_time(void);
-
-// 取得信息：两个参数用于取得外部内部的连接数，返回值是服务运行了多少秒，
-APR_MODULE(long) ctm_get_info(int *outer_cnt, int *inner_cnt);
 
 // 统计信息：得到发送了多少包，收到多少包，丢弃多少包（限制发送缓存模式）
 // 注意：三个指针会被填充 64位整数。

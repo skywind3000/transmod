@@ -33,6 +33,7 @@
 volatile static int _ctm_status = CTM_STOPPED;
 volatile static int _ctm_errno = CTM_OK;
 static long _ctm_threadid = -1;
+static unsigned long _ctm_start_time = 0;
 
 static void ctm_thread_working(void*);
 
@@ -51,7 +52,6 @@ APR_MODULE(int) ctm_startup(void)
 	if (_ctm_threadid >= 0) return -2;
 	if (apr_thread_create(&_ctm_threadid, ctm_thread_working, NULL, NULL)) 
 		return -4;
-	
 	return 0;
 }
 
@@ -61,6 +61,8 @@ APR_MODULE(int) ctm_startup(void)
 //---------------------------------------------------------------------
 APR_MODULE(int) ctm_shutdown(void)
 {
+	_ctm_start_time = 0;
+
 	if (_ctm_status == CTM_STOPPED) return 0;
 	if (_ctm_status == CTM_STOPPING) return 0;
 
@@ -90,6 +92,9 @@ APR_MODULE(long) ctm_status(int item)
 	case CTMS_WTIME:
 		retval = itm_wtime;
 		break;
+	case CTMS_STIME:
+		retval = (long)_ctm_start_time;
+		break;
 	}
 
 	return retval;
@@ -112,10 +117,13 @@ static void ctm_thread_working(void*p)
 	}
 
 	_ctm_status = CTM_RUNNING;
+	_ctm_start_time = (unsigned long)time(NULL);
 
 	while (_ctm_status == CTM_RUNNING) {
 		itm_process(ITMD_TIME_CYCLE);
 	}
+
+	_ctm_start_time = 0;
 
 _exitp:
 	itm_shutdown();
@@ -323,15 +331,6 @@ APR_MODULE(const char*) ctm_get_date(void)
 APR_MODULE(const char*) ctm_get_time(void)
 {
 	return __TIME__;
-}
-
-
-// 取得信息：返回服务运行了多少秒，两个参数用于取得外部内部的连接数
-APR_MODULE(long) ctm_get_info(int *outer_cnt, int *inner_cnt)
-{
-	if (outer_cnt) outer_cnt[0] = itm_outer_cnt;
-	if (inner_cnt) inner_cnt[0] = itm_inner_cnt;
-	return itm_wtime;
 }
 
 
