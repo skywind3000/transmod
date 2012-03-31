@@ -235,6 +235,7 @@ static int ctm_logout_proc(const char *text)
 	static int olday = -1;
 	static FILE *fp = NULL;
 	int size;
+	int retval = 0;
 
 	// 更新时间
 	tt_now = time(NULL);
@@ -276,14 +277,14 @@ static int ctm_logout_proc(const char *text)
 	}
 
 	if (log_mode & 2) {
-		write(1, xtext, size);
+		if (write(1, xtext, size) < 0) retval = -1;
 	}
 
 	if (log_mode & 4) {
-		write(2, xtext, size);
+		if (write(2, xtext, size) < 0) retval = -1;
 	}
 
-	return 0;
+	return retval;
 }
 
 APR_MODULE(int) cmt_handle_logout(int mode, const char *fn_prefix)
