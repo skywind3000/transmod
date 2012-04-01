@@ -95,6 +95,15 @@ APR_MODULE(long) ctm_status(int item)
 	case CTMS_STIME:
 		retval = (long)_ctm_start_time;
 		break;
+	case CTMS_CSEND:
+		retval = (long)itm_stat_send;
+		break;
+	case CTMS_CRECV:
+		retval = (long)itm_stat_recv;
+		break;
+	case CTMS_CDISCARD:
+		retval = (long)itm_stat_discard;
+		break;
 	}
 
 	return retval;

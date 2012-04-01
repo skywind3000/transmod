@@ -53,7 +53,7 @@ int itm_event_accept(int hmode)
 	// 处理失败
 	if (sock < 0) {
 		static apr_int64 last_log_time = 0;		// 判断时间避免疯狂刷日志
-		apr_int64 current = apr_timex();
+		apr_int64 current = apr_timex() / 1000;
 		if (current - last_log_time >= 100) {
 			itm_log(ITML_ERROR, "[ERROR] can not accept new %s connection errno=%d", 
 				(hmode == ITMD_OUTER_HOST)? "user" : "channel", apr_errno());

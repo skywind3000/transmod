@@ -40,6 +40,9 @@ extern "C" {
 #define CTMS_CHCOUNT		2	// 现在频道连接数
 #define CTMS_WTIME			3	// 取得服务运行时间
 #define CTMS_STIME			4	// 取得开始服务时间
+#define CTMS_CSEND			5	// 发送数量
+#define CTMS_CRECV			6	// 接受数量
+#define CTMS_CDISCARD		7	// 错误数量
 
 #define CTM_STOPPED		0	// 服务状态：停止
 #define CTM_STARTING	1	// 服务状态：启动中
