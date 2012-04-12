@@ -525,8 +525,7 @@ int itm_data_outer(struct ITMD *itmd)
 	}
 
 	// 如果没有加密则直接转发
-	itm_param_set(length, (unsigned short)(length + itm_headlen - itm_hdrsize), 
-		ITMT_DATA, itmd->hid, itmd->tag);
+	itm_param_set(length, (length + itm_headlen - itm_hdrsize), ITMT_DATA, itmd->hid, itmd->tag);
 
 	// 没有设置过分类的消息才发送到原频道
 	if (category <= 0) {
