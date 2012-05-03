@@ -917,7 +917,7 @@ int itm_send(struct ITMD *itmd, const void *data, long length)
 int itm_sendudp(struct sockaddr *remote, struct ITMHUDP *head, const void *data, long size)
 {
 	unsigned dsize = (unsigned short)size + ITM_ADDRSIZE + 2;
-	struct ITMHUDP headnew;
+	char headnew[16];
 
 	if (head != NULL) dsize = dsize + 16;
 
@@ -925,11 +925,11 @@ int itm_sendudp(struct sockaddr *remote, struct ITMHUDP *head, const void *data,
 	ims_write(&itm_dgramdat, remote, ITM_ADDRSIZE);
 
 	if (head != NULL) {
-		headnew.order = (unsigned long)ITMHTONL(head->order);
-		headnew.index = (unsigned long)ITMHTONL(head->index);
-		headnew.hid = (long)ITMHTONL(head->hid);
-		headnew.session = (long)ITMHTONL(head->session);
-		ims_write(&itm_dgramdat, &headnew, 16);
+		iencode32u_lsb(headnew +  0, head->order);
+		iencode32u_lsb(headnew +  4, head->index);
+		iencode32u_lsb(headnew +  8, (apr_uint32)head->hid);
+		iencode32u_lsb(headnew + 12, (apr_uint32)head->session);
+		ims_write(&itm_dgramdat, headnew, 16);
 	}
 
 	ims_write(&itm_dgramdat, data, size);

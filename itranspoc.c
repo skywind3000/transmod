@@ -470,22 +470,23 @@ int itm_event_recv(struct ITMD *itmd)
 int itm_event_dgram(void)
 {
 	struct sockaddr remote;
-	struct ITMHUDP *head;
+	struct ITMHUDP head;
 	long size;
 
-	head = (struct ITMHUDP*)itm_zdata;
 	for (size = 1; size > 0; ) {
 		size = apr_recvfrom(itm_dgram_sock, itm_zdata, ITM_BUFSIZE, 0, &remote);
 		if (size >= 16) {
-			head->order = (unsigned long)ITMNTOHL(head->order);
-			head->index = (unsigned long)ITMNTOHL(head->index);
-			head->hid = (long)ITMNTOHL(head->hid);
-			head->session = (long)ITMNTOHL(head->session);
-
-			if (head->order < 0x80000000) {
-				itm_dgram_data(&remote, head, itm_zdata + 16, size - 16);
+			apr_uint32 hid, session;
+			idecode32u_lsb(itm_zdata +  0, &head.order);
+			idecode32u_lsb(itm_zdata +  4, &head.index);
+			idecode32u_lsb(itm_zdata +  8, &hid);
+			idecode32u_lsb(itm_zdata + 12, &session);
+			head.hid = (apr_int32)hid;
+			head.session = (apr_int32)session;
+			if (head.order < 0x80000000) {
+				itm_dgram_data(&remote, &head, itm_zdata + 16, size - 16);
 			}	else {
-				itm_dgram_cmd(&remote, head, itm_zdata + 16, size - 16);
+				itm_dgram_cmd(&remote, &head, itm_zdata + 16, size - 16);
 			}
 		}	else
 		if (size > 0 && (itm_logmask & ITML_LOST)) {
