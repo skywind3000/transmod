@@ -216,13 +216,14 @@ int itm_event_accept(int hmode)
 
 	// 如果UDP开启则发送TOUCH信号
 	if ((itm_udpmask & ITMU_MWORK) && result == 1) {
-		*(apr_uint16*)(itm_data + 0) = ITMHTONS(16);
-		*(apr_uint16*)(itm_data + 2) = ITMHTONS(ITMU_TOUCH);
-		*(apr_uint32*)(itm_data + 4) = ITMHTONL((apr_uint32)(itmd->hid));
-		*(apr_uint32*)(itm_data + 8) = ITMHTONL((apr_uint32)(itmd->session));
-		*(apr_uint16*)(itm_data +12) = ITMHTONS((apr_uint16)itm_udpmask);
-		*(apr_uint16*)(itm_data +14) = ITMHTONS((apr_uint16)itm_dgram_port);
-		itm_send(itmd, itm_data, 16);
+		char *ptr = itm_data + itm_hdrsize;
+		itm_size_set(itm_data, itm_hdrsize + 14);
+		iencode16u_lsb(ptr +  0, ITMU_TOUCH);
+		iencode32u_lsb(ptr +  2, itmd->hid);
+		iencode32u_lsb(ptr +  6, itmd->session);
+		iencode16u_lsb(ptr + 10, (unsigned short)itm_udpmask);
+		iencode16u_lsb(ptr + 12, (unsigned short)itm_dgram_port);
+		itm_send(itmd, itm_data, itm_hdrsize + 14);
 	}
 
 	return 0;
