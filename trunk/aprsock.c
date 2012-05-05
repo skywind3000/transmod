@@ -15,13 +15,41 @@
 
 #include "aprsock.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
+#include <time.h>
 
 #ifdef __unix
 #include <netdb.h>
 #include <sched.h>
+#include <pthread.h>
+#include <dlfcn.h>
+#include <unistd.h>
+#include <netinet/in.h>
+
+#ifndef __llvm__
 #include <poll.h>
+#include <netinet/tcp.h>
+#endif
+
+#elif (defined(_WIN32) || defined(WIN32))
+#if ((!defined(_M_PPC)) && (!defined(_M_PPC_BE)) && (!defined(_XBOX)))
+#include <mmsystem.h>
+#include <mswsock.h>
+#include <process.h>
+#include <stddef.h>
+#ifdef _MSC_VER
+#pragma comment(lib, "winmm.lib")
+#pragma comment(lib, "ws2_32.lib")
+#pragma warning(disable:4312)
+#pragma warning(disable:4996)
+#endif
+#else
+#include <process.h>
+#pragma comment(lib, "xnet.lib")
+#endif
 #endif
 
 //---------------------------------------------------------------------
