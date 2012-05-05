@@ -125,9 +125,9 @@ long itm_local2 = 0;			// 局部变量用作临时参数定义2
 
 long itm_fastmode = 0;			// 是否启用写列表
 
-short *itm_book[256];			// 每种事件关注的频道列表
-int itm_booklen[256];			// 每种事件关注的频道数量
-struct IVECTOR itm_bookv[256];	// 每种事件关注的频道列表缓存
+short *itm_book[512];			// 每种事件关注的频道列表
+int itm_booklen[512];			// 每种事件关注的频道数量
+struct IVECTOR itm_bookv[512];	// 每种事件关注的频道列表缓存
 
 int itm_dhcp_index = -1;		// 频道分配索引
 int itm_dhcp_base = 100;		// 频道分配基址
@@ -297,7 +297,7 @@ int itm_startup(void)
 		itm_headmsk = 0;
 	}
 
-	for (i = 0; i < 256; i++) {
+	for (i = 0; i < 512; i++) {
 		itm_book[i] = NULL;
 		itm_booklen[i] = 0;
 		iv_init(&itm_bookv[i], NULL);
@@ -352,7 +352,7 @@ int itm_shutdown(void)
 	imp_destroy(&itm_mem);
 	itm_polld = NULL;
 
-	for (i = 0; i < 256; i++) {
+	for (i = 0; i < 512; i++) {
 		itm_book[i] = NULL;
 		itm_booklen[i] = 0;
 		iv_destroy(&itm_bookv[i]);
@@ -424,8 +424,10 @@ static int itm_socket_create(void)
 	buffer1 = itm_dgram_blimit;
 	buffer2 = itm_dgram_blimit;
 
-	apr_setsockopt(itm_dgram_sock, SOL_SOCKET, SO_RCVBUF, (char*)&buffer1, sizeof(buffer1));
-	apr_setsockopt(itm_dgram_sock, SOL_SOCKET, SO_SNDBUF, (char*)&buffer2, sizeof(buffer2));
+	if (itm_dgram_blimit > 0) {
+		apr_setsockopt(itm_dgram_sock, SOL_SOCKET, SO_RCVBUF, (char*)&buffer1, sizeof(buffer1));
+		apr_setsockopt(itm_dgram_sock, SOL_SOCKET, SO_SNDBUF, (char*)&buffer2, sizeof(buffer2));
+	}
 
 	// 绑定本地套接字
 	if (apr_bind(itm_outer_sock, (struct sockaddr*)&host_outer) ||
@@ -435,11 +437,15 @@ static int itm_socket_create(void)
 		return -3;
 	}
 
+	// 初始化 WIN32的 RESET修复
+	if (apr_win32_init(itm_dgram_sock))
+		return -4;
+
 	// 数据流监听开始
 	if (apr_listen(itm_outer_sock, itm_backlog) || 
 		apr_listen(itm_inner_sock, itm_backlog)) {
 		itm_socket_release();
-		return -4;
+		return -5;
 	}
 
 	apr_sockname(itm_outer_sock, (struct sockaddr*)&host_outer);
@@ -1054,14 +1060,17 @@ int itm_book_add(int category, int channel)
 	short *book;
 	int booklen, i;
 
-	if (category < 0 || category > 255 || itm_headmsk == 0) 
+	if (category < 0 || category > 511) 
 		return -1;
+
+	if (category < 256 && itm_headmsk == 0)
+		return -2;
 
 	newsize = (itm_booklen[category] + 1) * sizeof(short);
 
 	if (newsize > itm_bookv[category].length) {
 		if (iv_resize(&itm_bookv[category], newsize) != 0) {
-			return -2;
+			return -3;
 		}
 		itm_book[category] = (short*)itm_bookv[category].data;
 	}
@@ -1071,7 +1080,7 @@ int itm_book_add(int category, int channel)
 
 	for (i = 0; i < booklen; i++) {
 		if (book[i] == channel) 
-			return -3;
+			return -4;
 	}
 
 	itm_book[category][booklen] = channel;
@@ -1090,14 +1099,17 @@ int itm_book_del(int category, int channel)
 	int booklen;
 	int pos, i;
 
-	if (category < 0 || category > 255 || itm_headmsk == 0) 
+	if (category < 0 || category > 511);
 		return -1;
+
+	if (category < 256 && itm_headmsk == 0) 
+		return -2;
 
 	book = itm_book[category];
 	booklen = itm_booklen[category];
 
 	if (booklen <= 0) 
-		return -2;
+		return -3;
 
 	for (i = 0, pos = -1; i < booklen; i++) {
 		if (book[i] == channel) {
@@ -1107,7 +1119,7 @@ int itm_book_del(int category, int channel)
 	}
 
 	if (pos < 0) 
-		return -3;
+		return -4;
 
 	book[pos] = book[booklen - 1];
 	itm_booklen[category]--;
@@ -1122,10 +1134,10 @@ int itm_book_reset(int channel)
 {
 	int i;
 
-	if (itm_headmsk == 0 || channel < 0) 
+	if ((itm_headmsk == 0 && itm_udpmask == 0) || channel < 0) 
 		return -1;
 
-	for (i = 0; i < 256; i++) {
+	for (i = 0; i < 512; i++) {
 		itm_book_del(i, channel);
 	}
 
@@ -1138,7 +1150,7 @@ int itm_book_reset(int channel)
 int itm_book_empty(void)
 {
 	int i;
-	for (i = 0; i < 256; i++) {
+	for (i = 0; i < 512; i++) {
 		itm_booklen[i] = 0;
 	}
 	return 0;

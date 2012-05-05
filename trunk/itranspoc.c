@@ -483,7 +483,7 @@ int itm_event_dgram(void)
 			idecode32u_lsb(itm_zdata + 12, &session);
 			head.hid = (apr_int32)hid;
 			head.session = (apr_int32)session;
-			if (head.order < 0x80000000) {
+			if (head.order < 0x80000000 || (head.order >> 24) == 0xff) {
 				itm_dgram_data(&remote, &head, itm_zdata + 16, size - 16);
 			}	else {
 				itm_dgram_cmd(&remote, &head, itm_zdata + 16, size - 16);
@@ -1002,10 +1002,20 @@ int itm_on_dgram(struct ITMD *itmd, long wparam, long lparam, long length)
 		}
 		return 0;
 	}
-	if (to->channel != itmd->channel && itmd->channel != 0 && itm_headmod < ITMH_DWORDMASK) { 
+	if (to->channel != itmd->channel && itmd->channel != 0) {
+		if (itm_headmod < ITMH_DWORDMASK && (itm_udpmask & (ITMU_MDUDP | ITMU_MDTCP)) != 0) { 
+			if (itm_logmask & ITML_WARNING) {
+				itm_log(ITML_WARNING, 
+					"[WARNING] cannot send dgram to hid %XH from channel %d", 
+					wparam, itmd->channel);
+			}
+			return 0;
+		}
+	}
+	if ((itm_udpmask & ITMU_MWORK) == 0) {
 		if (itm_logmask & ITML_WARNING) {
-			itm_log(ITML_WARNING, 
-				"[WARNING] cannot send dgram to hid %XH from channel %d", 
+			itm_log(ITML_WARNING,
+				"[WARNING] cannot send dgram to hid %XH from channel %d for udp disable",
 				wparam, itmd->channel);
 		}
 		return 0;
@@ -1018,20 +1028,13 @@ int itm_on_dgram(struct ITMD *itmd, long wparam, long lparam, long length)
 		}
 		return 0;
 	}
-	if ((itm_udpmask & ITMU_MWORK) == 0) {
-		if (itm_logmask & ITML_WARNING) {
-			itm_log(ITML_WARNING,
-				"[WARNING] cannot send dgram to hid %XH from channel %d for udp disable",
-				wparam, itmd->channel);
-		}
-		return 0;
-	}
 
 	// 向具体的连接发送数据
 	if (itm_logmask & ITML_DATA) {
 		itm_log(ITML_DATA, "channel %d send %d bytes dgram to %s hid=%XH", 
 			itmd->channel, dlength + 2, itm_epname(&to->remote), to->hid);
 	}
+
 	itm_sendto(to, itm_data + itm_headlen, dlength);
 	lparam = lparam;
 
@@ -1225,9 +1228,11 @@ int itm_on_syscd(struct ITMD *itmd, long wparam, long lparam, long length)
 // 处理报文数据
 //---------------------------------------------------------------------
 int itm_dgram_data(struct sockaddr *remote, struct ITMHUDP *head, void *data, long size)
-{
+{ 
 	struct ITMD *itmd;
 	struct ITMD *channel;
+	int category = 0;
+
 	itmd = itm_hid_itmd(head->hid);
 	if (itmd == NULL) {
 		itm_log(ITML_LOST, "[DROP] dgram session error from %s", itm_epname(remote));
@@ -1243,6 +1248,11 @@ int itm_dgram_data(struct sockaddr *remote, struct ITMHUDP *head, void *data, lo
 		itm_log(ITML_WARNING, 
 			"[WARNING] dgram refused: channel %d does not exist", itmd->channel);
 		return -1;
+	}
+	
+	if ((head->order >> 24) == 0xff) {
+		category = head->order & 0xffff;
+		head->order = 0;
 	}
 
 	if (head->order < itmd->cnt_udpr && (itm_udpmask & ITMU_MDUDP)) {
@@ -1267,13 +1277,31 @@ int itm_dgram_data(struct sockaddr *remote, struct ITMHUDP *head, void *data, lo
 		return -3;
 	}
 
-	itm_param_set(0, (size + itm_headlen), ITMT_UNRDAT, itmd->hid, itmd->tag);
-	itm_send(channel, itm_data, itm_headlen);
-	itm_send(channel, data, size);
-
-	if (itm_logmask & ITML_DATA) {
-		itm_log(ITML_DATA, "recv %d bytes dgram from %s hid=%XH channel=%d", 
-			size, itm_epname(&itmd->remote), itmd->hid, itmd->channel);
+	if (category < 0x100) {
+		itm_param_set(0, (size + itm_headlen), ITMT_UNRDAT, itmd->hid, itmd->tag);
+		itm_send(channel, itm_data, itm_headlen);
+		itm_send(channel, data, size);
+		if (itm_logmask & ITML_DATA) {
+			itm_log(ITML_DATA, "recv %d bytes dgram from %s hid=%XH channel=%d", 
+				size, itm_epname(&itmd->remote), itmd->hid, itmd->channel);
+		}
+	}	
+	else if (category < 0x200 && itm_booklen[category] > 0) {
+		long len, i;
+		len = itm_booklen[category];
+		itm_param_set(0, (size + itm_headlen), ITMT_UNRDAT, itmd->hid, itmd->tag);
+		for (i = 0; i < len; i++) {
+			long chid = itm_book[category][i];
+			channel = (struct ITMD*)itm_rchannel(chid);
+			if (channel != NULL && chid != itmd->channel) {
+				itm_send(channel, itm_data, itm_headlen);
+				itm_send(channel, data, size);
+			}
+		}
+		if (itm_logmask & ITML_DATA) {
+			itm_log(ITML_DATA, "recv %d bytes dgram from %s hid=%XH channel=%d (category=%d)", 
+				size, itm_epname(&itmd->remote), itmd->hid, itmd->channel, category);
+		}
 	}
 
 	return 0;

@@ -46,7 +46,7 @@
 extern "C" {
 #endif
 
-#define ITMV_VERSION 0x246	// 传输模块版本号
+#define ITMV_VERSION 0x247	// 传输模块版本号
 
 //=====================================================================
 // Global Variables Definition
@@ -254,8 +254,8 @@ int itm_permitr(struct ITMD *itmd);				// 允许一个READ事件
 
 extern char itm_zdata[];		// 底层数据收发缓存
 
-extern short *itm_book[256];	// 每种事件关注的频道列表
-extern int itm_booklen[256];	// 每种事件关注的频道数量
+extern short *itm_book[512];	// 每种事件关注的频道列表
+extern int itm_booklen[512];	// 每种事件关注的频道数量
 
 int itm_mask(struct ITMD *itmd, int enable, int disable);	// 设置事件捕捉
 int itm_send(struct ITMD *itmd, const void *data, long length);	// 发送数据

@@ -39,7 +39,8 @@ static void ctm_thread_working(void*);
 
 
 #ifdef _MSC_VER
-#pragma comment(lib,"wsock32.lib")
+#pragma comment(lib, "wsock32.lib")
+#pragma comment(lib, "ws2_32.lib")
 #endif
 
 
@@ -182,6 +183,7 @@ APR_MODULE(int) ctm_option(int item, long value)
 	case CTMO_SOCKRCVI:  itm_sockrcvi = (long)value; break;
 	case CTMO_SOCKSNDO:  itm_socksndo = (long)value; break;
 	case CTMO_SOCKRCVO:  itm_sockrcvo = (long)value; break;
+	case CTMO_SOCKUDPB:  itm_dgram_blimit = (long)value; break;
 	case CTMO_DHCPBASE:  itm_dhcp_base = (int)value; break;
 	case CTMO_DHCPHIGH:  itm_dhcp_high = (int)value; break;
 	case CTMO_NOREUSE:   itm_noreuse = (int)value; break;
