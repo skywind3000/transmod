@@ -408,6 +408,50 @@ int apr_recvall(int sock, void *buf, long size)
 	return (retval < 0)? retval : total;
 }
 
+
+
+
+//---------------------------------------------------------------------
+// WIN32 UDP³õÊ¼»¯
+//---------------------------------------------------------------------
+int apr_win32_init(int sock)
+{
+	long mode = 1;
+
+	if (sock < 0) return -1;
+
+#if (defined(WIN32) || defined(_WIN32) || defined(_WIN64) || defined(WIN64))
+	#define _SIO_UDP_CONNRESET_ _WSAIOW(IOC_VENDOR, 12)
+	{
+		DWORD dwBytesReturned = 0;
+		BOOL bNewBehavior = FALSE;
+		DWORD status;
+		/* disable  new behavior using
+		   IOCTL: SIO_UDP_CONNRESET */
+
+		status = WSAIoctl(sock, _SIO_UDP_CONNRESET_,
+					&bNewBehavior, sizeof(bNewBehavior),  
+					NULL, 0, &dwBytesReturned, 
+					NULL, NULL);
+
+		if (SOCKET_ERROR == (int)status) {
+			DWORD err = WSAGetLastError();
+			if (err == WSAEWOULDBLOCK) {
+				/* nothing to doreturn(FALSE); */
+			} else {
+				closesocket(sock);
+				return -2;
+			}
+		}
+	}
+#endif
+
+	setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char*)&mode, sizeof(long));
+
+	return 0;
+}
+
+
 #ifdef _MSC_VER
 #pragma warning(disable:4996)
 #endif

@@ -92,6 +92,7 @@ APR_MODULE(long) ctm_errno(void);
 #define CTMO_SOCKRCVO	16	// 外部套接字接收缓存
 #define CTMO_SOCKSNDI	17	// 内部套接字发送缓存
 #define CTMO_SOCKRCVI	18	// 内部套接字接收缓存
+#define CTMO_SOCKUDPB	19	// 数据报套接字缓存
 #define CTMO_PORTD	20	// 数据报监听端口
 #define CTMO_DGRAM	21	// 数据报启动模式
 #define CTMO_UTIME	22	// 客户端计时模式
