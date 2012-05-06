@@ -166,9 +166,9 @@ APR_MODULE(int) ctm_option(int item, long value)
 		switch (value)
 		{
 		case 0:	itm_udpmask = 0;	break;
-		case 1: itm_udpmask = ITMU_MWORK | ITMU_MDUDP | ITMU_MDTCP; break;
+		case 1: itm_udpmask = ITMU_MWORK; break;
 		case 2: itm_udpmask = ITMU_MWORK | ITMU_MDUDP; break;
-		case 3: itm_udpmask = ITMU_MWORK; break;
+		case 3: itm_udpmask = ITMU_MWORK | ITMU_MDUDP | ITMU_MDTCP; break;
 		}
 		break;
 	case CTMO_HEADER:
