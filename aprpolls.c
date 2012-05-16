@@ -207,10 +207,10 @@ static int aps_poll_set(apolld ipd, int fd, int mask)
 	}	else {
 		if (mask & APOLL_OUT) FD_SET((unsigned)fd, &ps->fdw);
 	}
-	if (omask & APOLL_IN) {
-		if (!(mask & APOLL_IN)) FD_CLR((unsigned)fd, &ps->fde);
+	if (omask & APOLL_ERR) {
+		if (!(mask & APOLL_ERR)) FD_CLR((unsigned)fd, &ps->fde);
 	}	else {
-		if (mask & APOLL_IN) FD_SET((unsigned)fd, &ps->fde);
+		if (mask & APOLL_ERR) FD_SET((unsigned)fd, &ps->fde);
 	}
 	ps->fv.fds[fd].mask = mask;
 
