@@ -100,6 +100,7 @@ APR_MODULE(long) ctm_errno(void);
 #define CTMO_DHCPBASE	24	// 最低的分配
 #define CTMO_DHCPHIGH	25	// 最高的分配
 #define CTMO_NOREUSE	26	// 禁用套接字地址重用
+#define CTMO_HTTPSKIP	27	// 跳过 HTTP头部
 
 
 // 设置服务参数
