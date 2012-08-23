@@ -213,13 +213,13 @@ int apr_recvfrom(int sock, void *buf, long size, int mode, struct sockaddr *addr
 //---------------------------------------------------------------------
 // 调用ioctlsocket，设置输出输入参数
 //---------------------------------------------------------------------
-int apr_ioctl(int sock, long cmd, unsigned long *argp)
+int apr_ioctl(int sock, unsigned long cmd, unsigned long *argp)
 {
 	int retval;
 	#ifdef __unix
 	retval = ioctl(sock, cmd, argp);
 	#else
-	retval = ioctlsocket((SOCKET)sock, cmd, argp);
+	retval = ioctlsocket((SOCKET)sock, (long)cmd, argp);
 	#endif
 	return retval;	
 }

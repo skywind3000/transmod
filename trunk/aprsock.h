@@ -330,7 +330,7 @@ int apr_sendto(int sock, const void *buf, long size, int mode, const struct sock
 int apr_recvfrom(int sock, void *buf, long size, int mode, struct sockaddr *addr);
 
 // 调用ioctlsocket，设置输出输入参数
-int apr_ioctl(int sock, long cmd, unsigned long *argp);
+int apr_ioctl(int sock, unsigned long cmd, unsigned long *argp);
 
 // 设置套接字参数
 int apr_setsockopt(int sock, int level, int optname, const char *optval, int optlen);
