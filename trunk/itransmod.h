@@ -46,7 +46,7 @@
 extern "C" {
 #endif
 
-#define ITMV_VERSION 0x247	// 传输模块版本号
+#define ITMV_VERSION 0x248	// 传输模块版本号
 
 //=====================================================================
 // Global Variables Definition
@@ -116,6 +116,7 @@ extern long itm_interval;			// 时间间隔
 #define ITMD_TIME_CYCLE		10		// 基础时钟定义
 
 extern long itm_fastmode;			// 是否启用写列表
+extern long itm_httpskip;			// 是否跳过类 http头部
 
 extern int itm_dhcp_index;			// 频道分配索引
 extern int itm_dhcp_base;			// 频道分配基址
@@ -164,6 +165,11 @@ struct ITMD
 	unsigned long cnt_tcpw;		// TCP发送计数器
 	unsigned long cnt_udpr;		// UDP接收计数器
 	unsigned long cnt_udpw;		// UDP发送计数器
+	unsigned char skipped;		// 跳过 http头部否
+	unsigned char history1;		// 历史字符串
+	unsigned char history2;		// 历史字符串
+	unsigned char history3;		// 历史字符串
+	unsigned char history4;		// 历史字符串
 #ifndef IDISABLE_RC4			// 判断 RC4功能是否被禁止
 	int rc4_send_x;				// RC4 发送加密位置1
 	int rc4_send_y;				// RC4 发送加密位置2

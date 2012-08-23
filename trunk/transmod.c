@@ -187,6 +187,7 @@ APR_MODULE(int) ctm_option(int item, long value)
 	case CTMO_DHCPBASE:  itm_dhcp_base = (int)value; break;
 	case CTMO_DHCPHIGH:  itm_dhcp_high = (int)value; break;
 	case CTMO_NOREUSE:   itm_noreuse = (int)value; break;
+	case CTMO_HTTPSKIP:  itm_httpskip = (int)value; break;
 	}
 	return 0;
 }

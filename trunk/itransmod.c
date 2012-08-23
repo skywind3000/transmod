@@ -124,6 +124,7 @@ long itm_local1 = 0;			// 局部变量用作临时参数定义1
 long itm_local2 = 0;			// 局部变量用作临时参数定义2
 
 long itm_fastmode = 0;			// 是否启用写列表
+long itm_httpskip = 0;			// 是否跳过类 http头部
 
 short *itm_book[512];			// 每种事件关注的频道列表
 int itm_booklen[512];			// 每种事件关注的频道数量

@@ -176,6 +176,11 @@ int itm_event_accept(int hmode)
 	itmd->cnt_tcpw = 0;
 	itmd->cnt_udpr = 0;
 	itmd->cnt_udpw = 0;
+	itmd->skipped = 0;
+	itmd->history1 = 0;
+	itmd->history2 = 0;
+	itmd->history3 = 0;
+	itmd->history4 = 0;
 	itmd->initok = 1;
 
 	if (hmode == ITMD_OUTER_HOST) {
@@ -423,6 +428,23 @@ int itm_event_recv(struct ITMD *itmd)
 
 	// 激活当前的超时设置
 	idt_active((itmd->mode == ITMD_OUTER_CLIENT)? &itm_timeu : &itm_timec, itmd->timeid);
+
+	// 跳过 HTTP头部模式
+	if (itm_httpskip) {
+		if (itmd->mode == ITMD_OUTER_CLIENT && itmd->skipped == 0) {
+			struct IMSTREAM *stream = &(itmd->rstream);
+			while (stream->size > 0 && itmd->skipped == 0) {
+				itmd->history1 = itmd->history2;
+				itmd->history2 = itmd->history3;
+				itmd->history3 = itmd->history4;
+				ims_read(stream, &(itmd->history4), 1);
+				if (itmd->history1 == '\r' && itmd->history2 == '\n' &&
+					itmd->history3 == '\r' && itmd->history4 == '\n') {
+					itmd->skipped = 1;
+				}
+			}
+		}
+	}	
 
 	// 处理接收下来的所有包
 	for (;;) {
