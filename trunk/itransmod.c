@@ -479,7 +479,7 @@ static int itm_socket_create(void)
 static int itm_socket_release(void)
 {
 	if (itm_outer_sock >= 0) apr_close(itm_outer_sock);
-	if (itm_inner_sock >= 0) apr_close(itm_outer_sock);
+	if (itm_inner_sock >= 0) apr_close(itm_inner_sock);
 	if (itm_dgram_sock >= 0) apr_close(itm_dgram_sock);
 	itm_outer_sock = -1;
 	itm_inner_sock = -1;
