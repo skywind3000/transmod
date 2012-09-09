@@ -1064,7 +1064,7 @@ int itm_book_add(int category, int channel)
 	if (category < 0 || category > 511) 
 		return -1;
 
-	if (category < 256 && itm_headmsk == 0)
+	if (category > 0 && category < 255 && itm_headmsk == 0)
 		return -2;
 
 	newsize = (itm_booklen[category] + 1) * sizeof(short);
@@ -1103,7 +1103,7 @@ int itm_book_del(int category, int channel)
 	if (category < 0 || category > 511);
 		return -1;
 
-	if (category < 256 && itm_headmsk == 0) 
+	if (category > 0 && category < 255 && itm_headmsk == 0)
 		return -2;
 
 	book = itm_book[category];
