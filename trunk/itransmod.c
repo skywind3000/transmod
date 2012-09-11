@@ -643,18 +643,19 @@ int itm_timer(void)
 	}	else itm_notice_count = 0;
 
 	itmd = itm_rchannel(0);
-	if (itmd == NULL) itm_notice_count = 0;
 	
-	// 发送频道时钟信号到频道 0
+	// 发送频道时钟信号到频道 0 以及订阅255分类的频道
 	if (itm_notice_count > 0) {
 		notice_time = itm_notice_slap - itm_notice_saved;
 		v = notice_time - itm_notice_cycle * itm_notice_count;
 		for (; itm_notice_count > 0; v += itm_notice_cycle) {
 			i = (int)(v % 1000);
 			itm_param_set(0, itm_headlen, ITMT_TIMER, (int)(v - i), i);
-			if (itmd->wstream.size < itm_inner_blimit) 
-				itm_send(itmd, itm_data, itm_headlen);
-			if (itm_headmsk && itm_booklen[255] > 0) {
+			if (itmd != NULL) {
+				if (itmd->wstream.size < itm_inner_blimit) 
+					itm_send(itmd, itm_data, itm_headlen);
+			}
+			if (itm_booklen[255] > 0) {
 				for (k = itm_booklen[255] - 1; k >= 0; k--) {
 					int chid = itm_book[255][k];
 					channel = itm_rchannel(chid);
@@ -1064,9 +1065,6 @@ int itm_book_add(int category, int channel)
 	if (category < 0 || category > 511) 
 		return -1;
 
-	if (category > 0 && category < 255 && itm_headmsk == 0)
-		return -2;
-
 	newsize = (itm_booklen[category] + 1) * sizeof(short);
 
 	if (newsize > itm_bookv[category].length) {
@@ -1103,9 +1101,6 @@ int itm_book_del(int category, int channel)
 	if (category < 0 || category > 511);
 		return -1;
 
-	if (category > 0 && category < 255 && itm_headmsk == 0)
-		return -2;
-
 	book = itm_book[category];
 	booklen = itm_booklen[category];
 
@@ -1135,7 +1130,7 @@ int itm_book_reset(int channel)
 {
 	int i;
 
-	if ((itm_headmsk == 0 && itm_udpmask == 0) || channel < 0) 
+	if (channel < 0) 
 		return -1;
 
 	for (i = 0; i < 512; i++) {
