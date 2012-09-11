@@ -199,7 +199,7 @@ int itm_event_accept(int hmode)
 				itm_epname(&remote), itmd->hid);
 			result = 1;
 		}
-		if (itm_headmsk && itm_booklen[0] > 0 && result == 1) {
+		if (itm_booklen[0] > 0 && result == 1) {
 			long len, i;
 			len = itm_booklen[0];
 			itm_param_set(0, itm_headlen + 6, ITMT_NEW, itmd->hid, itmd->tag);
@@ -272,7 +272,7 @@ int itm_event_close(struct ITMD *itmd, int code)
 				itm_write_dword(itm_data + itm_headlen, (apr_uint32)code);
 				itm_send(channel, itm_data, itm_headlen + 4);
 			}
-			if (itm_headmsk && itm_booklen[0] > 0) {
+			if (itm_booklen[0] > 0) {
 				long i;
 				itm_param_set(0, itm_headlen + 4, ITMT_LEAVE, itmd->hid, itmd->tag);
 				itm_write_dword(itm_data + itm_headlen, (apr_uint32)code);
