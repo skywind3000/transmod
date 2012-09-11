@@ -29,10 +29,8 @@
 #include <unistd.h>
 #include <netinet/in.h>
 
-#ifndef __llvm__
 #include <poll.h>
 #include <netinet/tcp.h>
-#endif
 
 #elif (defined(_WIN32) || defined(WIN32))
 #if ((!defined(_M_PPC)) && (!defined(_M_PPC_BE)) && (!defined(_XBOX)))
