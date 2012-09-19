@@ -46,7 +46,7 @@
 extern "C" {
 #endif
 
-#define ITMV_VERSION 0x249	// 传输模块版本号
+#define ITMV_VERSION 0x250	// 传输模块版本号
 
 //=====================================================================
 // Global Variables Definition
@@ -384,6 +384,8 @@ void itm_lltoa(char *dst, apr_int64 x);
 #define ITMS_RC4RKEY	17	// 设置接收KEY (st, hid) key
 #define ITMS_NODELAY	1	// 连接控制：设置立即发送模式
 #define ITMS_NOPUSH		2	// 连接控制：设置数据流塞子
+#define ITMS_PRIORITY	3	// SO_PRIORITY
+#define ITMS_TOS		4	// IP_TOS
 
 #define ITMH_WORDLSB	0		// 头部标志：2字节LSB
 #define ITMH_WORDMSB	1		// 头部标志：2字节MSB

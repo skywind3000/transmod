@@ -1426,6 +1426,40 @@ int itm_on_ioctl(struct ITMD *itmd, long wparam, long lparam, long length)
 					itmd->channel, valued, wparam, retval);
 		}
 		break;
+	
+	case ITMS_PRIORITY:
+		if (to == NULL) {
+			itm_log(ITML_WARNING, "[WARNING] channel %d cannot set nopush to hid=%XH",
+				itmd->channel, wparam);
+			break;
+		}
+		#if defined(SOL_SOCKET) && defined(SO_PRIORITY)
+		retval = apr_setsockopt(to->fd, SOL_SOCKET, SO_PRIORITY, (char*)&valued, sizeof(valued));
+		if (itm_logmask & ITML_DATA) {
+			itm_log(ITML_DATA, "ioctl: channel %d set priority %d to hid=%XH result=%d",
+					itmd->channel, valued, wparam, retval);
+		}
+		#else
+		itm_log(ITML_WARNING, "[WARNING] channel %d does not support to set priority", itmd->channel); 
+		#endif
+		break;
+
+	case ITMS_TOS:
+		if (to == NULL) {
+			itm_log(ITML_WARNING, "[WARNING] channel %d cannot set nopush to hid=%XH",
+				itmd->channel, wparam);
+			break;
+		}
+		#if defined(SOL_IP) && defined(IP_TOS)
+		retval = apr_setsockopt(to->fd, SOL_IP, IP_TOS, (char*)&valued, sizeof(valued));
+		if (itm_logmask & ITML_DATA) {
+			itm_log(ITML_DATA, "ioctl: channel %d set TOS %d to hid=%XH result=%d",
+					itmd->channel, valued, wparam, retval);
+		}
+		#else
+		itm_log(ITML_WARNING, "[WARNING] channel %d does not support to set TOS", itmd->channel); 
+		#endif
+		break;
 	}
 
 	return 0;
