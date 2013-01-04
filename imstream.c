@@ -34,7 +34,7 @@
  */
 int ims_init(struct IMSTREAM *stream, struct IMPOOL *pool)
 {
-	int page;
+	long page;
 
 	assert(stream && pool);
 
@@ -65,7 +65,7 @@ int ims_init(struct IMSTREAM *stream, struct IMPOOL *pool)
 int ims_destroy(struct IMSTREAM *stream)
 {
 	struct IMPOOL *pool;
-	int i, n;
+	long i, n;
 	assert(stream);
 	assert(stream->pool);
 	pool = stream->pool;
@@ -117,6 +117,7 @@ long ims_write(struct IMSTREAM *stream, const void *buf, long size)
 		// whether to allocate new page
 		if (stream->pos_write >= stream->page_size) {
 			p = imp_newnode(pool);
+			assert(p >= 0);
 			if (p < 0) break;
 			IMP_NODE(pool, stream->page_head) = p;
 			IMP_NODE(pool, p) = -1;
