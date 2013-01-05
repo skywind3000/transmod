@@ -926,12 +926,14 @@ int itm_on_channel(struct ITMD *itmd, long wparam, long lparam, long length)
 				itmd->channel, length, wparam);
 		}
 		itm_send(channel, itm_data, length);
+		itm_bcheck(channel);
 	}	else {			// 如果是群发
 		for (tmnode = itm_timec.tail, c = 0; tmnode; tmnode = tmnode->next) {
 			channel = itm_hid_itmd(tmnode->data);
 			if (channel != NULL) {
 				if (channel->channel != itmd->channel) {
 					itm_send(channel, itm_data, length);
+					itm_bcheck(channel);
 					c++;
 				}
 			}	else {

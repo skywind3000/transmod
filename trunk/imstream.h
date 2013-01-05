@@ -33,14 +33,13 @@
  **********************************************************************/
 struct IMSTREAM
 {
-	long page_head;	      /* head page node index in mem-pool  */
-	long page_tail;	      /* tail page node index in mem-pool  */
-	long page_size;	      /* page data size in the mem-pool */
-	long page_cnt;	      /* page count in the mem-pool     */
-	long pos_read;	      /* current reader pointer         */
-	long pos_write;	      /* current writer pointer         */
-	int shift;		      /* page size shift                */
-	long size;		      /* real data size in the stream   */
+	ilong page_head;	  /* head page node index in mem-pool  */
+	ilong page_tail;	  /* tail page node index in mem-pool  */
+	ilong page_size;	  /* page data size in the mem-pool */
+	ilong page_cnt;	      /* page count in the mem-pool     */
+	ilong pos_read;	      /* current reader pointer         */
+	ilong pos_write;	  /* current writer pointer         */
+	ilong size;		      /* real data size in the stream   */
 	struct IMPOOL *pool;  /* mem-pool struct pointer        */
 };
 

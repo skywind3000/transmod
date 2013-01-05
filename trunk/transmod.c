@@ -162,6 +162,7 @@ APR_MODULE(int) ctm_option(int item, long value)
 	case CTMO_PORTD:	itm_dgram_port = value;		break;
 	case CTMO_UTIME:	itm_utiming = value;		break;
 	case CTMO_INTERVAL:	itm_interval = value;		break;
+	case CTMO_LIMIT:    itm_limit = value;          break;
 	case CTMO_DGRAM:
 		switch (value)
 		{

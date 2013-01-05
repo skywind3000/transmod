@@ -34,7 +34,7 @@
  */
 int ims_init(struct IMSTREAM *stream, struct IMPOOL *pool)
 {
-	long page;
+	ilong page;
 
 	assert(stream && pool);
 
@@ -52,7 +52,6 @@ int ims_init(struct IMSTREAM *stream, struct IMPOOL *pool)
 	stream->pos_write = 0;
 	stream->size = 0;
 	stream->page_size = pool->node_size;
-	stream->shift = pool->node_shift;
 
 	return 0;
 }
@@ -65,7 +64,7 @@ int ims_init(struct IMSTREAM *stream, struct IMPOOL *pool)
 int ims_destroy(struct IMSTREAM *stream)
 {
 	struct IMPOOL *pool;
-	long i, n;
+	ilong i, n;
 	assert(stream);
 	assert(stream->pool);
 	pool = stream->pool;
@@ -77,7 +76,6 @@ int ims_destroy(struct IMSTREAM *stream)
 	stream->page_tail = -1;
 	stream->page_cnt = 0;
 	stream->page_size = 0;
-	stream->shift = 0;
 	stream->pos_read = 0;
 	stream->pos_write = 0;
 	stream->pool = NULL;
@@ -92,7 +90,7 @@ int ims_destroy(struct IMSTREAM *stream)
  */
 long ims_write(struct IMSTREAM *stream, const void *buf, long size)
 {
-	long total = 0, canwrite, towrite, p;
+	ilong total = 0, canwrite, towrite, p;
 	char *lptr = (char*)buf;
 	char *mem;
 	struct IMPOOL *pool;
@@ -118,7 +116,9 @@ long ims_write(struct IMSTREAM *stream, const void *buf, long size)
 		if (stream->pos_write >= stream->page_size) {
 			p = imp_newnode(pool);
 			assert(p >= 0);
-			if (p < 0) break;
+			if (p < 0) {
+				break;
+			}
 			IMP_NODE(pool, stream->page_head) = p;
 			IMP_NODE(pool, p) = -1;
 			stream->page_head = p;
@@ -127,7 +127,7 @@ long ims_write(struct IMSTREAM *stream, const void *buf, long size)
 		}
 	}
 
-	return total;
+	return (long)total;
 }
 
 
@@ -137,8 +137,8 @@ long ims_write(struct IMSTREAM *stream, const void *buf, long size)
  */ 
 long ims_read(struct IMSTREAM *stream, void *buf, long size)
 {
-	long total = 0, canread, toread, page_tail, pos_read, p, r;
-	long mpeek = (size >= 0)? 0 : 1; /* whether to use peek */
+	ilong total = 0, canread, toread, page_tail, pos_read, p, r;
+	ilong mpeek = (size >= 0)? 0 : 1; /* whether to use peek */
 	struct IMPOOL *pool;
 	char *lptr;
 	char *mem;
@@ -207,7 +207,7 @@ long ims_read(struct IMSTREAM *stream, void *buf, long size)
 	}
 	mpeek = r;
 
-	return total;
+	return (long)total;
 }
 
 
@@ -217,7 +217,7 @@ long ims_read(struct IMSTREAM *stream, void *buf, long size)
  */
 long ims_rptr(const struct IMSTREAM *stream, void**ptr)
 {
-	int canread = 0;
+	ilong canread = 0;
 
 	assert(stream);
 	assert(stream->pool);
@@ -231,7 +231,7 @@ long ims_rptr(const struct IMSTREAM *stream, void**ptr)
 	if (ptr) *ptr = (char*)IMP_DATA(stream->pool, stream->page_tail) + 
 					stream->pos_read;
 
-	return canread;
+	return (long)canread;
 }
 
 

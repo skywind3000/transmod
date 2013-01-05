@@ -49,25 +49,26 @@ struct IMPOOL
     struct IVECTOR vnode;           /* node information data   */
     struct IVECTOR vdata;           /* node data buffer vector */
     struct IVECTOR vmode;           /* mode of allocation      */
-    ilong *mprev;                    /* prev node array         */
-    ilong *mnext;                    /* next node array         */
-    ilong *mnode;                    /* node info array         */
+    ilong *mprev;                   /* prev node array         */
+    ilong *mnext;                   /* next node array         */
+    ilong *mnode;                   /* node info array         */
     void**mdata;                    /* node data array         */
-    ilong *mmode;                    /* node mode array         */
-    ilong node_free;                 /* number of free nodes    */
-    ilong node_max;                  /* number of all nodes     */
+    ilong *mmode;                   /* node mode array         */
+    ilong node_free;                /* number of free nodes    */
+    ilong node_max;                 /* number of all nodes     */
 
     int node_size;                  /* node data fixed size    */
     int node_shift;                 /* node data size shift    */
 
     struct IVECTOR vmem;            /* mem-pages in the pool   */
     char **mmem;                    /* mem-pages array         */
-    ilong mem_max;                   /* max num of memory pages */
-    ilong mem_count;                 /* number of mem-pages     */
+    ilong mem_max;                  /* max num of memory pages */
+    ilong mem_count;                /* number of mem-pages     */
+	ilong grow_limit;				/* grow limit              */
 
-    ilong list_open;                 /* the entry of open-list  */
-    ilong list_close;                /* the entry of close-list */
-    ilong total_mem;                 /* total memory size       */
+    ilong list_open;                /* the entry of open-list  */
+    ilong list_close;               /* the entry of close-list */
+    ilong total_mem;                /* total memory size       */
 };
 
 

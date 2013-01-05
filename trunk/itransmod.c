@@ -66,6 +66,7 @@ long itm_outer_time = 180;		// 外部连接生命时间：五分钟
 long itm_inner_time = 3600;		// 内部连接生命时间：一小时
 long itm_wtime  = 0;			// 世界时钟
 long itm_datamax = 0x200000;	// 最长数据长度
+long itm_limit = 0;				// 发送缓存最长数据
 
 long itm_inner_addr = 0;		// 内部监听绑定的IP
 long itm_logmask = 0;			// 日志掩码，0为不输出日志
@@ -177,6 +178,9 @@ int itm_startup(void)
 	// 内存节点管理器初始化
 	imp_init(&itm_fds, sizeof(struct ITMD), NULL);
 	imp_init(&itm_mem, itm_psize, NULL);
+
+	// 初始化内存增长限制
+	itm_mem.grow_limit = 4096;
 
 	// 套接字初始化
 	retval = itm_socket_create();
@@ -309,6 +313,10 @@ int itm_startup(void)
 	itm_stat_send = 0;
 	itm_stat_recv = 0;
 	itm_stat_discard = 0;
+
+	if (itm_limit < itm_inner_blimit * 2) {
+		itm_limit = itm_inner_blimit * 2;
+	}
 
 	if (itm_dhcp_base < 100) itm_dhcp_base = 100;
 	if (itm_dhcp_high < itm_dhcp_base) itm_dhcp_high = itm_dhcp_base;
@@ -652,16 +660,18 @@ int itm_timer(void)
 			i = (int)(v % 1000);
 			itm_param_set(0, itm_headlen, ITMT_TIMER, (int)(v - i), i);
 			if (itmd != NULL) {
-				if (itmd->wstream.size < itm_inner_blimit) 
+				if (itmd->wstream.size < itm_inner_blimit) {
 					itm_send(itmd, itm_data, itm_headlen);
+				}
 			}
 			if (itm_booklen[255] > 0) {
 				for (k = itm_booklen[255] - 1; k >= 0; k--) {
 					int chid = itm_book[255][k];
 					channel = itm_rchannel(chid);
 					if (channel && chid != 0) {
-						if (channel->wstream.size < itm_inner_blimit)
+						if (channel->wstream.size < itm_inner_blimit) {
 							itm_send(channel, itm_data, itm_headlen);
+						}
 					}
 				}
 			}
@@ -979,11 +989,11 @@ int itm_bcheck(struct ITMD *itmd)
 {
 	int retval = 0;
 	if (itmd->mode == ITMD_INNER_CLIENT) {
-		if (itmd->wstream.size >= itm_inner_blimit) {
+		if (itmd->wstream.size >= itm_limit) {
 			retval = -1;
 			itm_log(ITML_WARNING, 
 				"[WARNING] channel buffer limit riched %d: hid=%XH channel=%d", 
-				itm_inner_blimit, itmd->hid, itmd->channel, itmd->mode);
+				itm_limit, itmd->hid, itmd->channel, itmd->mode);
 		}
 	}	else if (itmd->mode == ITMD_OUTER_CLIENT) {
 		if (itmd->wstream.size >= itm_outer_blimit) {
@@ -991,6 +1001,12 @@ int itm_bcheck(struct ITMD *itmd)
 			itm_log(ITML_WARNING, 
 				"[WARNING] user buffer limit riched %d: hid=%XH channel=%d", 
 				itm_outer_blimit, itmd->hid, itmd->channel, itmd->mode);
+		}
+		if (itmd->wstream.size > itm_limit) {
+			retval = -2;
+			itm_log(ITML_WARNING, 
+				"[WARNING] user buffer limit riched %d: hid=%XH channel=%d", 
+				itm_limit, itmd->hid, itmd->channel, itmd->mode);
 		}
 	}
 	if (retval) itm_event_close(itmd, 2102);
