@@ -88,6 +88,7 @@ void imp_init(struct IMPOOL *imp, int nodesize, struct IALLOCATOR *allocator)
     imp->list_open = -1;
     imp->list_close = -1;
     imp->total_mem = 0;
+	imp->grow_limit = -1;
 }
 
 
@@ -172,7 +173,7 @@ static int imp_node_resize(struct IMPOOL *imp, ilong size)
  * imp_mem_add - returns zero for successful others for error
  * increase memory page in the pool
  */
-static int imp_mem_add(struct IMPOOL *imp, int node_count, void **mem)
+static int imp_mem_add(struct IMPOOL *imp, ilong node_count, void **mem)
 {
     isize_t newsize;
     char *mpage;
@@ -187,7 +188,7 @@ static int imp_mem_add(struct IMPOOL *imp, int node_count, void **mem)
     }
 
     /* allocate memory for the new memory page */
-    newsize = node_count * imp->node_size;
+    newsize = ((ilong)node_count) * imp->node_size;
 
     if (imp->allocator) {
         mpage = (char*)imp->allocator->alloc(imp->allocator, newsize);
@@ -195,7 +196,9 @@ static int imp_mem_add(struct IMPOOL *imp, int node_count, void **mem)
         mpage = (char*)iv_malloc(newsize);
     }
 
-    if (mpage == NULL) return -2;
+    if (mpage == NULL) {
+		return -2;
+	}
 
     /* record the new mem-page */
     imp->mmem[imp->mem_count++] = mpage;
@@ -213,14 +216,21 @@ static int imp_mem_add(struct IMPOOL *imp, int node_count, void **mem)
  */ 
 static int imp_node_grow(struct IMPOOL *imp)
 {
-    int size_start = imp->node_max;
-    int size_new = (imp->node_max <= 0)? IMPN_ALIGN : imp->node_max * 2;
-    int retval, count, i, j;
+    ilong size_start = imp->node_max;
+    ilong size_new = 0;
+    ilong retval, count, i, j;
     void *mpage;
     char *p;
 
-    /* caculate the new node count need to increase */
-    count = size_new - size_start;
+	/* calculate the new node count need to increase */
+	count = (imp->node_max <= IMPN_ALIGN)? IMPN_ALIGN : imp->node_max;
+
+	if (imp->grow_limit > 0 && count > imp->grow_limit)
+		count = imp->grow_limit;
+
+	if (count < IMPN_ALIGN) count = IMPN_ALIGN;
+
+	size_new = size_start + count;
 
     /* increase the memory pool */
     retval = imp_mem_add(imp, count, &mpage);
@@ -262,7 +272,10 @@ int imp_newnode(struct IMPOOL *imp)
 
     /* grow the node array and allocate memory if needed */
     if (imp->list_open < 0) {
-        if (imp_node_grow(imp)) return -2;
+		int hr = imp_node_grow(imp);
+        if (hr) {
+			return -2;
+		}
     }
 
     if (imp->list_open < 0 || imp->node_free <= 0) return -3;

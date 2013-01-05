@@ -46,7 +46,7 @@
 extern "C" {
 #endif
 
-#define ITMV_VERSION 0x250	// 传输模块版本号
+#define ITMV_VERSION 0x260	// 传输模块版本号
 
 //=====================================================================
 // Global Variables Definition
@@ -82,6 +82,7 @@ extern long itm_outer_time;	// 外部连接生命时间
 extern long itm_inner_time;	// 内部连接生命时间
 extern long itm_wtime;		// 世界时钟
 extern long itm_datamax;	// 最长的数据
+extern long itm_limit;		// 发送缓存超过就断开
 
 extern long itm_inner_addr;	// 内部监听绑定的IP
 extern long itm_logmask;	// 日志级别，0 为不输出日志
