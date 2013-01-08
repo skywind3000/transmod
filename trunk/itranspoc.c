@@ -48,7 +48,7 @@ int itm_event_accept(int hmode)
 	
 	// 判断套接字并接受连接
 	host = (hmode == ITMD_OUTER_HOST)? itm_outer_sock : itm_inner_sock;
-	sock = apr_accept(host, &remote);
+	sock = apr_accept(host, &remote, NULL);
 
 	// 处理失败
 	if (sock < 0) {
@@ -496,7 +496,7 @@ int itm_event_dgram(void)
 	long size;
 
 	for (size = 1; size > 0; ) {
-		size = apr_recvfrom(itm_dgram_sock, itm_zdata, ITM_BUFSIZE, 0, &remote);
+		size = apr_recvfrom(itm_dgram_sock, itm_zdata, ITM_BUFSIZE, 0, &remote, NULL);
 		if (size >= 16) {
 			apr_uint32 hid, session;
 			idecode32u_lsb(itm_zdata +  0, &head.order);
