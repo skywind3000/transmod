@@ -300,19 +300,19 @@ int apr_socket(int family, int type, int protocol);
 int apr_close(int sock);
 
 // 连接目标地址
-int apr_connect(int sock, const struct sockaddr *addr);
+int apr_connect(int sock, const struct sockaddr *addr, int addrlen);
 
 // 停止套接字
 int apr_shutdown(int sock, int mode);
 
 // 绑定端口
-int apr_bind(int sock, const struct sockaddr *addr);
+int apr_bind(int sock, const struct sockaddr *addr, int addrlen);
 
 // 监听消息
 int apr_listen(int sock, int count);
 
 // 接收连接
-int apr_accept(int sock, struct sockaddr *addr);
+int apr_accept(int sock, struct sockaddr *addr, int *addrlen);
 
 // 获取错误信息
 int apr_errno(void);
@@ -324,10 +324,10 @@ int apr_send(int sock, const void *buf, long size, int mode);
 int apr_recv(int sock, void *buf, long size, int mode);
 
 // 非连接套接字发送消息
-int apr_sendto(int sock, const void *buf, long size, int mode, const struct sockaddr *addr);
+int apr_sendto(int sock, const void *buf, long size, int mode, const struct sockaddr *addr, int addrlen);
 
 // 非连接套接字接收消息
-int apr_recvfrom(int sock, void *buf, long size, int mode, struct sockaddr *addr);
+int apr_recvfrom(int sock, void *buf, long size, int mode, struct sockaddr *addr, int *addrlen);
 
 // 调用ioctlsocket，设置输出输入参数
 int apr_ioctl(int sock, unsigned long cmd, unsigned long *argp);
@@ -339,10 +339,10 @@ int apr_setsockopt(int sock, int level, int optname, const char *optval, int opt
 int apr_getsockopt(int sock, int level, int optname, char *optval, int *optlen);
 
 // 取得套接字地址
-int apr_sockname(int sock, struct sockaddr *addr);
+int apr_sockname(int sock, struct sockaddr *addr, int *addrlen);
 
 // 取得套接字所连接地址
-int apr_peername(int sock, struct sockaddr *addr);
+int apr_peername(int sock, struct sockaddr *addr, int *addrlen);
 
 
 //---------------------------------------------------------------------

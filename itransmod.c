@@ -439,9 +439,9 @@ static int itm_socket_create(void)
 	}
 
 	// 绑定本地套接字
-	if (apr_bind(itm_outer_sock, (struct sockaddr*)&host_outer) ||
-		apr_bind(itm_inner_sock, (struct sockaddr*)&host_inner) ||
-		apr_bind(itm_dgram_sock, (struct sockaddr*)&host_dgram)) {
+	if (apr_bind(itm_outer_sock, (struct sockaddr*)&host_outer, 0) ||
+		apr_bind(itm_inner_sock, (struct sockaddr*)&host_inner, 0) ||
+		apr_bind(itm_dgram_sock, (struct sockaddr*)&host_dgram, 0)) {
 		itm_socket_release();
 		return -3;
 	}
@@ -457,9 +457,9 @@ static int itm_socket_create(void)
 		return -5;
 	}
 
-	apr_sockname(itm_outer_sock, (struct sockaddr*)&host_outer);
-	apr_sockname(itm_inner_sock, (struct sockaddr*)&host_inner);
-	apr_sockname(itm_dgram_sock, (struct sockaddr*)&host_dgram);
+	apr_sockname(itm_outer_sock, (struct sockaddr*)&host_outer, NULL);
+	apr_sockname(itm_inner_sock, (struct sockaddr*)&host_inner, NULL);
+	apr_sockname(itm_dgram_sock, (struct sockaddr*)&host_dgram, NULL);
 
 	itm_outer_port = htons(host_outer.sin_port);
 	itm_inner_port = htons(host_inner.sin_port);

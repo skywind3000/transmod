@@ -120,9 +120,10 @@ int apr_close(int sock)
 //---------------------------------------------------------------------
 // 连接目标地址
 //---------------------------------------------------------------------
-int apr_connect(int sock, const struct sockaddr *addr)
+int apr_connect(int sock, const struct sockaddr *addr, int addrlen)
 {
 	DSOCKLEN_T len = sizeof(struct sockaddr);
+	if (addrlen > 0) len = (DSOCKLEN_T)addrlen;
 	return connect(sock, addr, len);
 }
 
@@ -137,9 +138,10 @@ int apr_shutdown(int sock, int mode)
 //---------------------------------------------------------------------
 // 绑定端口
 //---------------------------------------------------------------------
-int apr_bind(int sock, const struct sockaddr *addr)
+int apr_bind(int sock, const struct sockaddr *addr, int addrlen)
 {
 	DSOCKLEN_T len = sizeof(struct sockaddr);
+	if (addrlen > 0) len = (DSOCKLEN_T)addrlen;
 	return bind(sock, addr, len);
 }
 
@@ -154,10 +156,16 @@ int apr_listen(int sock, int count)
 //---------------------------------------------------------------------
 // 接收连接
 //---------------------------------------------------------------------
-int apr_accept(int sock, struct sockaddr *addr)
+int apr_accept(int sock, struct sockaddr *addr, int *addrlen)
 {
 	DSOCKLEN_T len = sizeof(struct sockaddr);
-	return (int)accept(sock, addr, &len);
+	int hr;
+	if (addrlen) {
+		len = (addrlen[0] > 0)? (DSOCKLEN_T)addrlen[0] : len;
+	}
+	hr = (int)accept(sock, addr, &len);
+	if (addrlen) addrlen[0] = (int)len;
+	return hr;
 }
 
 //---------------------------------------------------------------------
@@ -193,19 +201,26 @@ int apr_recv(int sock, void *buf, long size, int mode)
 //---------------------------------------------------------------------
 // 非连接套接字发送
 //---------------------------------------------------------------------
-int apr_sendto(int sock, const void *buf, long size, int mode, const struct sockaddr *addr)
+int apr_sendto(int sock, const void *buf, long size, int mode, const struct sockaddr *addr, int addrlen)
 {
 	DSOCKLEN_T len = sizeof(struct sockaddr);
+	if (addrlen > 0) len = addrlen;
 	return sendto(sock, (char*)buf, size, mode, addr, len);
 }
 
 //---------------------------------------------------------------------
 // 非连接套接字接收
 //---------------------------------------------------------------------
-int apr_recvfrom(int sock, void *buf, long size, int mode, struct sockaddr *addr)
+int apr_recvfrom(int sock, void *buf, long size, int mode, struct sockaddr *addr, int *addrlen)
 {
 	DSOCKLEN_T len = sizeof(struct sockaddr);
-	return recvfrom(sock, (char*)buf, size, mode, addr, &len);
+	int hr;
+	if (addrlen) {
+		len = (addrlen[0] > 0)? (DSOCKLEN_T)addrlen[0] : len;
+	}
+	hr = (int)recvfrom(sock, (char*)buf, size, mode, addr, &len);
+	if (addrlen) addrlen[0] = (int)len;
+	return hr;
 }
 
 //---------------------------------------------------------------------
@@ -240,26 +255,37 @@ int apr_getsockopt(int sock, int level, int optname, char *optval, int *optlen)
 	int retval;
 	retval = getsockopt(sock, level, optname, optval, &len);
 	if (optlen) *optlen = len;
-
 	return retval;
 }
 
 //---------------------------------------------------------------------
 // 取得套接字地址
 //---------------------------------------------------------------------
-int apr_sockname(int sock, struct sockaddr *addr)
+int apr_sockname(int sock, struct sockaddr *addr, int *addrlen)
 {
 	DSOCKLEN_T len = sizeof(struct sockaddr);
-	return getsockname(sock, addr, &len);
+	int hr;
+	if (addrlen) {
+		len = (addrlen[0] > 0)? (DSOCKLEN_T)addrlen[0] : len;
+	}
+	hr = (int)getsockname(sock, addr, &len);
+	if (addrlen) addrlen[0] = (int)len;
+	return hr;
 }
 
 //---------------------------------------------------------------------
 // 取得套接字所连接地址
 //---------------------------------------------------------------------
-int apr_peername(int sock, struct sockaddr *addr)
+int apr_peername(int sock, struct sockaddr *addr, int *addrlen)
 {
 	DSOCKLEN_T len = sizeof(struct sockaddr);
-	return getpeername(sock, addr, &len);
+	int hr;
+	if (addrlen) {
+		len = (addrlen[0] > 0)? (DSOCKLEN_T)addrlen[0] : len;
+	}
+	hr = (int)getpeername(sock, addr, &len);
+	if (addrlen) addrlen[0] = (int)len;
+	return hr;
 }
 
 
