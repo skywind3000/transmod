@@ -73,39 +73,47 @@ APR_MODULE(long) ctm_errno(void);
 //---------------------------------------------------------------------
 // Options Method Definition
 //---------------------------------------------------------------------
-#define CTMO_WTIME	0	// 世界事件
-#define CTMO_PORTU	1	// 外部端口
-#define CTMO_PORTC	2	// 内部端口
-#define CTMO_MAXCU	3	// 外部最大连接
-#define CTMO_MAXCC	4	// 内部最大连接
-#define CTMO_TIMEU	5	// 外部连接超时
-#define CTMO_TIMEC	6	// 内部连接超时
-#define CTMO_ADDRC	7	// 内部绑定地址
-#define CTMO_LOGMK	8	// 日志报告掩码
-#define CTMO_LIMTU	9	// 外部最大缓存
-#define CTMO_LIMTC	10	// 内部最大缓存
-#define CTMO_PLOGP	11	// 设置日志打印函数指针
-#define	CTMO_PENCP	12	// 设置加密函数指针
-#define CTMO_HEADER	13	// 头部模式
-#define CTMO_DATMAX 14	// 最大数据
-#define CTMO_SOCKSNDO	15	// 外部套接字发送缓存
-#define CTMO_SOCKRCVO	16	// 外部套接字接收缓存
-#define CTMO_SOCKSNDI	17	// 内部套接字发送缓存
-#define CTMO_SOCKRCVI	18	// 内部套接字接收缓存
-#define CTMO_SOCKUDPB	19	// 数据报套接字缓存
-#define CTMO_PORTD	20	// 数据报监听端口
-#define CTMO_DGRAM	21	// 数据报启动模式
-#define CTMO_UTIME	22	// 客户端计时模式
-#define CTMO_INTERVAL	23	// 启动间隔模式
-#define CTMO_DHCPBASE	24	// 最低的分配
-#define CTMO_DHCPHIGH	25	// 最高的分配
-#define CTMO_NOREUSE	26	// 禁用套接字地址重用
-#define CTMO_HTTPSKIP	27	// 跳过 HTTP头部
-#define CTMO_LIMIT		28	// 频道缓存限制
+#define CTMO_HEADER		0	// 头部模式
+#define CTMO_WTIME		1	// 世界时间
+#define CTMO_PORTU4		2	// IPv4 外部端口
+#define CTMO_PORTC4		3	// IPv4 内部端口
+#define CTMO_PORTU6		4	// IPv6 外部端口
+#define CTMO_PORTC6		5	// IPv6 内部端口
+#define CTMO_PORTD4		6	// IPv4 数据报端口
+#define CTMO_PORTD6		7	// IPv6 数据报端口
+#define CTMO_HTTPSKIP	8	// 跳过 HTTP头部
+#define CTMO_DGRAM		9	// 数据报启动模式
+
+#define CTMO_MAXCU		20	// 外部最大连接
+#define CTMO_MAXCC		21	// 内部最大连接
+#define CTMO_TIMEU		22	// 外部连接超时
+#define CTMO_TIMEC		23	// 内部连接超时
+#define CTMO_LIMIT		24	// 频道最大限制
+#define CTMO_LIMTU		25	// 外部最大缓存
+#define CTMO_LIMTC		26	// 内部最大缓存
+#define CTMO_ADDRC4		27	// IPv4 内部绑定地址
+#define CTMO_ADDRC6		28	// IPv6 内部绑定地址
+
+#define CTMO_DATMAX		40	// 最大数据
+#define CTMO_DHCPBASE	41	// 最低的分配
+#define CTMO_DHCPHIGH	42	// 最高的分配
+
+#define CTMO_PLOGP		80	// 设置日志打印函数指针
+#define	CTMO_PENCP		81	// 设置加密函数指针
+#define CTMO_LOGMK		82	// 日志报告掩码
+#define CTMO_INTERVAL	83	// 启动间隔模式
+#define CTMO_UTIME		84	// 客户端计时模式
+#define CTMO_NOREUSE	85	// 禁用套接字地址重用
+#define CTMO_SOCKSNDO	90	// 外部套接字发送缓存
+#define CTMO_SOCKRCVO	91	// 外部套接字接收缓存
+#define CTMO_SOCKSNDI	92	// 内部套接字发送缓存
+#define CTMO_SOCKRCVI	93	// 内部套接字接收缓存
+#define CTMO_SOCKUDPB	94	// 数据报套接字缓存
+
 
 
 // 设置服务参数
-APR_MODULE(int) ctm_option(int item, long value);
+APR_MODULE(int) ctm_config(int item, long value, const char *text);
 
 
 typedef int (*CTM_LOG_HANDLE)(const char *);

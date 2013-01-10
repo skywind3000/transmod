@@ -142,27 +142,26 @@ _exitp:
 }
 
 //---------------------------------------------------------------------
-// ctm_option
+// ctm_config
 //---------------------------------------------------------------------
-APR_MODULE(int) ctm_option(int item, long value)
+APR_MODULE(int) ctm_config(int item, long value, const char *text)
 {
 	switch (item)
 	{
+	case CTMO_HEADER:
+		if (_ctm_status == CTM_STOPPED) itm_headmod = value; 
+		else return -1;
+		break;
+
 	case CTMO_WTIME:	itm_wtime = value;			break;
-	case CTMO_PORTU:	itm_outer_port = value;		break;
-	case CTMO_PORTC:	itm_inner_port = value;		break;
-	case CTMO_MAXCU:	itm_outer_max = value;		break;
-	case CTMO_MAXCC:	itm_inner_max = value;		break;
-	case CTMO_TIMEU:	itm_outer_time = value;		break;
-	case CTMO_TIMEC:	itm_inner_time = value;		break;
-	case CTMO_ADDRC:	itm_inner_addr = value;		break;
-	case CTMO_LOGMK:	itm_logmask = value;		break;
-	case CTMO_LIMTU:	itm_outer_blimit = value;	break;
-	case CTMO_LIMTC:	itm_inner_blimit = value;	break;
-	case CTMO_PORTD:	itm_dgram_port = value;		break;
-	case CTMO_UTIME:	itm_utiming = value;		break;
-	case CTMO_INTERVAL:	itm_interval = value;		break;
-	case CTMO_LIMIT:    itm_limit = value;          break;
+	case CTMO_PORTU4:	itm_outer_port4 = value;	break;
+	case CTMO_PORTC4:	itm_inner_port4 = value;	break;
+	case CTMO_PORTU6:	itm_outer_port6 = value;	break;
+	case CTMO_PORTC6:	itm_inner_port6 = value;	break;
+	case CTMO_PORTD4:	itm_dgram_port4 = value;	break;
+	case CTMO_PORTD6:	itm_dgram_port6 = value;	break;
+	case CTMO_HTTPSKIP:  itm_httpskip = (int)value; break;
+
 	case CTMO_DGRAM:
 		switch (value)
 		{
@@ -172,23 +171,34 @@ APR_MODULE(int) ctm_option(int item, long value)
 		case 3: itm_udpmask = ITMU_MWORK | ITMU_MDUDP | ITMU_MDTCP; break;
 		}
 		break;
-	case CTMO_HEADER:
-		if (_ctm_status == CTM_STOPPED) itm_headmod = value; 
-		else return -1;
-		break;
+
+	case CTMO_MAXCU:	itm_outer_max = value;		break;
+	case CTMO_MAXCC:	itm_inner_max = value;		break;
+	case CTMO_TIMEU:	itm_outer_time = value;		break;
+	case CTMO_TIMEC:	itm_inner_time = value;		break;
+	case CTMO_LIMIT:    itm_limit = value;          break;
+	case CTMO_LIMTU:	itm_outer_blimit = value;	break;
+	case CTMO_LIMTC:	itm_inner_blimit = value;	break;
+	case CTMO_ADDRC4: 	apr_pton(AF_INET, text, &itm_inner_addr4); break;
+	case CTMO_ADDRC6: 	apr_pton(AF_INET, text, itm_inner_addr6); break;
+
 	case CTMO_DATMAX:
 		if (_ctm_status == CTM_STOPPED) itm_datamax = value; 
 		else return -1;
 		break;
+
+	case CTMO_LOGMK:	itm_logmask = value;		break;
+	case CTMO_UTIME:	itm_utiming = value;		break;
+	case CTMO_INTERVAL:	itm_interval = value;		break;
+	case CTMO_DHCPBASE:  itm_dhcp_base = (int)value; break;
+	case CTMO_DHCPHIGH:  itm_dhcp_high = (int)value; break;
+
 	case CTMO_SOCKSNDI:  itm_socksndi = (long)value; break;
 	case CTMO_SOCKRCVI:  itm_sockrcvi = (long)value; break;
 	case CTMO_SOCKSNDO:  itm_socksndo = (long)value; break;
 	case CTMO_SOCKRCVO:  itm_sockrcvo = (long)value; break;
 	case CTMO_SOCKUDPB:  itm_dgram_blimit = (long)value; break;
-	case CTMO_DHCPBASE:  itm_dhcp_base = (int)value; break;
-	case CTMO_DHCPHIGH:  itm_dhcp_high = (int)value; break;
 	case CTMO_NOREUSE:   itm_noreuse = (int)value; break;
-	case CTMO_HTTPSKIP:  itm_httpskip = (int)value; break;
 	}
 	return 0;
 }

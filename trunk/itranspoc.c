@@ -36,19 +36,44 @@
 //---------------------------------------------------------------------
 int itm_event_accept(int hmode) 
 {
-	struct sockaddr remote;
-	struct sockaddr_in *addr;
+	struct sockaddr remote4;
+	struct sockaddr_in *addr4;
+#ifdef AF_INET6
+	struct sockaddr_in6 addr6;
+#endif
 	struct ITMD *itmd, *channel;
 	int sock = -1, node = 0, retval;
-	int host, r1, r2, result = 0;
+	int r1, r2, result = 0;
 	unsigned long noblock = 1;
 	unsigned long revalue = 1;
 	unsigned long bufsize = 0;
 	long sockrcv, socksnd;
+	int addrlen = 0;
+	char *epname;
 	
 	// 判断套接字并接受连接
-	host = (hmode == ITMD_OUTER_HOST)? itm_outer_sock : itm_inner_sock;
-	sock = apr_accept(host, &remote, NULL);
+	if (hmode == ITMD_OUTER_HOST4) {
+		sock = apr_accept(itm_outer_sock4, &remote4, NULL);
+		epname = itm_epname4(&remote4);
+	}
+	else if (hmode == ITMD_INNER_HOST4) {
+		sock = apr_accept(itm_inner_sock4, &remote4, NULL);
+		epname = itm_epname4(&remote4);
+	}
+#ifdef AF_INET6
+	else if (hmode == ITMD_OUTER_HOST6) {
+		addrlen = sizeof(addr6);
+		sock = apr_accept(itm_outer_sock6, (struct sockaddr*)&addr6, &addrlen);
+		epname = itm_epname6((struct sockaddr*)&addr6);
+	}
+	else if (hmode == ITMD_INNER_HOST6) {
+		addrlen = sizeof(addr6);
+		sock = apr_accept(itm_inner_sock6, (struct sockaddr*)&addr6, &addrlen);
+		epname = itm_epname6((struct sockaddr*)&addr6);
+	}
+#else
+	addrlen = addrlen;
+#endif
 
 	// 处理失败
 	if (sock < 0) {
@@ -56,13 +81,13 @@ int itm_event_accept(int hmode)
 		apr_int64 current = apr_timex() / 1000;
 		if (current - last_log_time >= 100) {
 			itm_log(ITML_ERROR, "[ERROR] can not accept new %s connection errno=%d", 
-				(hmode == ITMD_OUTER_HOST)? "user" : "channel", apr_errno());
+				ITMD_HOST_IS_OUTER(hmode)? "user" : "channel", apr_errno());
 			last_log_time = current;
 		}
 		return -1;
 	}
 
-	if (hmode == ITMD_OUTER_HOST) {
+	if (ITMD_HOST_IS_OUTER(hmode)) {
 		if (itm_outer_cnt >= itm_outer_max) {
 			apr_close(sock);
 			itm_log(ITML_ERROR, 
@@ -79,12 +104,18 @@ int itm_event_accept(int hmode)
 			return -2;
 		}
 		if (itm_validate) {
-			retval = itm_validate(&remote);
+			if (ITMD_HOST_IS_IPV4(hmode)) {
+				retval = itm_validate(&remote4);
+			}	else {
+			#ifdef AF_INET6
+				retval = itm_validate((struct sockaddr*)&addr6);
+			#endif
+			}
 			if (retval != 0) {
 				apr_close(sock);
 				itm_log(ITML_ERROR, 
 					"[ERROR] connection refused: invalid ip for %s code=%d",
-					itm_epname(&remote), retval);
+					epname, retval);
 				return -2;
 			}
 		}
@@ -102,7 +133,7 @@ int itm_event_accept(int hmode)
 	apr_ioctl(sock, FIONBIO, &noblock);
 	apr_setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char*)&revalue, sizeof(revalue));
 
-	if (hmode == ITMD_OUTER_HOST) {
+	if (hmode == ITMD_OUTER_HOST4 || hmode == ITMD_OUTER_HOST6) {
 		socksnd = itm_socksndo;
 		sockrcv = itm_sockrcvo;
 	}	else {
@@ -121,13 +152,31 @@ int itm_event_accept(int hmode)
 	}
 
 	itmd = (struct ITMD*)IMP_DATA(&itm_fds, node);
-	itmd->mode = (hmode == ITMD_OUTER_HOST)? ITMD_OUTER_CLIENT : ITMD_INNER_CLIENT;
+	memset(itmd, 0, sizeof(struct ITMD));
+
+	if (hmode == ITMD_OUTER_HOST4) {
+		itmd->mode = ITMD_OUTER_CLIENT;
+		itmd->IsIPv6 = 0;
+	}
+	else if (hmode == ITMD_OUTER_HOST6) {
+		itmd->mode = ITMD_OUTER_CLIENT;
+		itmd->IsIPv6 = 1;
+	}
+	else if (hmode == ITMD_INNER_HOST4) {
+		itmd->mode = ITMD_INNER_CLIENT;
+		itmd->IsIPv6 = 0;
+	}
+	else if (hmode == ITMD_INNER_HOST6) {
+		itmd->mode = ITMD_INNER_CLIENT;
+		itmd->IsIPv6 = 1;
+	}
+
 	itmd->node = node;
 	itmd->fd = sock;
 	itmd->tag = -1;
 	itmd->mask = 0;
 	itmd->hid = (((++itm_counter) & 0x7fff) << 16) | (node & 0xffff);
-	itmd->channel = (hmode == ITMD_OUTER_HOST)? 0 : -1;
+	itmd->channel = ITMD_HOST_IS_OUTER(hmode)? 0 : -1;
 	itmd->timeid = -1;
 	itmd->initok = 0;
 	itmd->ccnum = 0;
@@ -140,18 +189,25 @@ int itm_event_accept(int hmode)
 	itmd->rc4_recv_y = -1;
 	#endif
 
-	if (hmode == ITMD_OUTER_HOST) itm_outer_cnt++;
+	if (ITMD_HOST_IS_OUTER(hmode)) itm_outer_cnt++;
 	else itm_inner_cnt++;
-	memcpy(&(itmd->remote), &remote, sizeof(remote));
+
+	if (itmd->IsIPv6 == 0) {
+		memcpy(&(itmd->remote4), &remote4, sizeof(remote4));
+	}	else {
+	#ifdef AF_INET6
+		memcpy(&(itmd->remote6), &addr6, sizeof(addr6));
+	#endif
+	}
 
 	r1 = ims_init(&itmd->rstream, &itm_mem);
 	r2 = ims_init(&itmd->wstream, &itm_mem);
-	itmd->timeid = (hmode == ITMD_OUTER_HOST)? 
+
+	itmd->timeid = ITMD_HOST_IS_OUTER(hmode)? 
 					idt_newtime(&itm_timeu, itmd->hid) : idt_newtime(&itm_timec, itmd->hid);
 
 	if (itmd->timeid < 0 || r1 || r2) {
-		itm_log(ITML_ERROR, "[ERROR] memory stream or collection set error for %s", 
-			itm_epname(&remote));
+		itm_log(ITML_ERROR, "[ERROR] memory stream or collection set error for %s", epname);
 		itm_event_close(itmd, 4001);
 		return 0;
 	}
@@ -160,7 +216,7 @@ int itm_event_accept(int hmode)
 
 	if (retval) {
 		itm_log(ITML_ERROR, "[ERROR] poll add fd %d error for %s", 
-			itmd->fd, itm_epname(&remote));
+			itmd->fd, epname);
 		itm_event_close(itmd, 4000);
 		return 0;
 	}
@@ -183,40 +239,45 @@ int itm_event_accept(int hmode)
 	itmd->history4 = 0;
 	itmd->initok = 1;
 
-	if (hmode == ITMD_OUTER_HOST) {
+	if (hmode == ITMD_OUTER_HOST4 || hmode == ITMD_OUTER_HOST6) {
+		int addrsize = 6;
 		channel = (struct ITMD*)itm_rchannel(0);
 		if (channel == NULL) {
 			itm_log(ITML_ERROR, "[ERROR] connection refused: channel 0 does not exist");
 			itm_event_close(itmd, 2300);
 		}	else {
 			channel->ccnum++;
-			itm_param_set(0, itm_headlen + 6, ITMT_NEW, itmd->hid, itmd->tag);
-			addr = (struct sockaddr_in*)&remote;
-			memcpy(itm_data + itm_headlen, &addr->sin_addr.s_addr, 4);
-			itm_write_word(itm_data + itm_headlen + 4, (unsigned short)(addr->sin_port));
-			itm_send(channel, itm_data, itm_headlen + 6);
-			itm_log(ITML_INFO, "new user connected from %s hid=%XH", 
-				itm_epname(&remote), itmd->hid);
+			if (itmd->IsIPv6 == 0) {
+				itm_param_set(0, itm_headlen + 6, ITMT_NEW, itmd->hid, itmd->tag);
+				addr4 = (struct sockaddr_in*)&remote4;
+				memcpy(itm_data + itm_headlen, &addr4->sin_addr.s_addr, 4);
+				itm_write_word(itm_data + itm_headlen + 4, (unsigned short)(addr4->sin_port));
+			}	else {
+				addrsize = 16 + 2;
+				itm_param_set(0, itm_headlen + addrsize, ITMT_NEW, itmd->hid, itmd->tag);
+			#ifdef AF_INET6
+				memcpy(itm_data + itm_headlen, &addr6.sin6_addr.s6_addr, 16);
+				itm_write_word(itm_data + itm_headlen + 16, (unsigned short)(addr6.sin6_port));
+			#endif
+			}
+			itm_send(channel, itm_data, itm_headlen + addrsize);
+			itm_log(ITML_INFO, "new user connected hid=%XH from %s", itmd->hid, epname);
 			result = 1;
 		}
 		if (itm_booklen[0] > 0 && result == 1) {
 			long len, i;
 			len = itm_booklen[0];
-			itm_param_set(0, itm_headlen + 6, ITMT_NEW, itmd->hid, itmd->tag);
-			addr = (struct sockaddr_in*)&remote;
-			memcpy(itm_data + itm_headlen, &addr->sin_addr.s_addr, 4);
-			itm_write_word(itm_data + itm_headlen + 4, (unsigned short)(addr->sin_port));
 			for (i = 0; i < len; i++) {
 				int chid = itm_book[0][i];
 				channel = (struct ITMD*)itm_rchannel(chid);
 				if (channel != NULL && chid != 0) {
-					itm_send(channel, itm_data, itm_headlen + 6);
+					itm_send(channel, itm_data, itm_headlen + addrsize);
 				}
 			}
 		}
 	}	else {
 		result = 2;
-		itm_log(ITML_INFO, "new channel connected from %s", itm_epname(&remote));
+		itm_log(ITML_INFO, "new channel connected from %s", epname);
 	}
 
 	// 如果UDP开启则发送TOUCH信号
@@ -227,7 +288,12 @@ int itm_event_accept(int hmode)
 		iencode32u_lsb(ptr +  2, itmd->hid);
 		iencode32u_lsb(ptr +  6, itmd->session);
 		iencode16u_lsb(ptr + 10, (unsigned short)itm_udpmask);
-		iencode16u_lsb(ptr + 12, (unsigned short)itm_dgram_port);
+		iencode16u_lsb(ptr + 12, (unsigned short)itm_dgram_port4);
+	#ifdef AF_INET6
+		if (itmd->IsIPv6) {
+			iencode16u_lsb(ptr + 12, (unsigned short)itm_dgram_port6);
+		}
+	#endif
 		itm_send(itmd, itm_data, itm_hdrsize + 14);
 	}
 
@@ -284,8 +350,8 @@ int itm_event_close(struct ITMD *itmd, int code)
 					}
 				}
 			}
-			itm_log(ITML_INFO, "closed user %s hid=%XH channel=%d drop=%d code=%d", 
-				itm_epname(&itmd->remote), itmd->hid, itmd->channel, itmd->dropped, code);
+			itm_log(ITML_INFO, "closed user hid=%XH channel=%d drop=%d code=%d from %s", 
+				itmd->hid, itmd->channel, itmd->dropped, code, itm_epname(itmd));
 		}	else {
 			// 允许所有客户的读事件，将会导致客户断开
 			while (itmd->waitq.nodecnt) itm_permitr(itmd);
@@ -301,8 +367,8 @@ int itm_event_close(struct ITMD *itmd, int code)
 				itm_write_dword(itm_data + itm_headlen, (apr_uint32)code);
 				itm_send(channel, itm_data, itm_headlen + 4);
 			}
-			itm_log(ITML_INFO, "closed channel %s hid=%XH channel=%d code=%d", 
-				itm_epname(&itmd->remote), itmd->hid, itmd->channel, code);
+			itm_log(ITML_INFO, "closed channel hid=%XH channel=%d code=%d from %s", 
+				itmd->hid, itmd->channel, code, itm_epname(itmd));
 		}
 	}
 	apr_shutdown(itmd->fd, 2);
@@ -364,9 +430,16 @@ int itm_event_send(struct ITMD *itmd)
 		}
 		break;
 
-	case ITMD_DGRAM_HOST:
-		itm_trysendto();
-		if (itm_dgramdat.size == 0) itm_mask(NULL, 0, ITM_WRITE);
+	case ITMD_DGRAM_HOST4:
+		itm_trysendto(AF_INET);
+		if (itm_dgramdat4.size == 0) itm_mask(&itmd_dgram4, 0, ITM_WRITE);
+		break;
+	
+	case ITMD_DGRAM_HOST6:
+	#ifdef AF_INET6
+		itm_trysendto(AF_INET6);
+	#endif
+		if (itm_dgramdat6.size == 0) itm_mask(&itmd_dgram6, 0, ITM_WRITE);
 		break;
 	}
 
@@ -452,14 +525,14 @@ int itm_event_recv(struct ITMD *itmd)
 		length = itm_dataok(itmd);
 		if (length == 0) break;		// 没有就返回
 		if (length < 0) { 
-			itm_log(ITML_INFO, "connection data error %s hid=%XH channel=%d", 
-				itm_epname(&itmd->remote), itmd->hid, itmd->channel);
+			itm_log(ITML_INFO, "connection data error hid=%XH channel=%d from %s", 
+				itmd->hid, itmd->channel, itm_epname(itmd));
 			itm_event_close(itmd, 2001); 
 			break; 
 		}
 		if (length > itm_datamax) {
-			itm_log(ITML_INFO, "data length is too long %s hid=%HX channel=%d",
-				itm_epname(&itmd->remote), itmd->hid, itmd->channel);
+			itm_log(ITML_INFO, "data length is too long hid=%HX channel=%d from %s",
+				itmd->hid, itmd->channel, itm_epname(itmd));
 			itm_event_close(itmd, 2002);
 			break;
 		}
@@ -489,14 +562,29 @@ int itm_event_recv(struct ITMD *itmd)
 //---------------------------------------------------------------------
 // 收取数据报
 //---------------------------------------------------------------------
-int itm_event_dgram(void)
+int itm_event_dgram(int af)
 {
-	struct sockaddr remote;
+	struct sockaddr_in remote4;
+#ifdef AF_INET6
+	struct sockaddr_in6 remote6;
+#endif
+	struct sockaddr *remote;
 	struct ITMHUDP head;
 	long size;
 
 	for (size = 1; size > 0; ) {
-		size = apr_recvfrom(itm_dgram_sock, itm_zdata, ITM_BUFSIZE, 0, &remote, NULL);
+		if (af == AF_INET) {
+			remote = (struct sockaddr*)&remote4;
+			size = apr_recvfrom(itm_dgram_sock4, itm_zdata, ITM_BUFSIZE, 0, remote, NULL);
+		}	else {
+		#ifdef AF_INET6
+			int addrlen = sizeof(remote6);
+			remote = (struct sockaddr*)&remote6;
+			size = apr_recvfrom(itm_dgram_sock6, itm_zdata, ITM_BUFSIZE, 0, remote, &addrlen);
+		#else
+			size = 0;
+		#endif
+		}
 		if (size >= 16) {
 			apr_uint32 hid, session;
 			idecode32u_lsb(itm_zdata +  0, &head.order);
@@ -506,13 +594,13 @@ int itm_event_dgram(void)
 			head.hid = (apr_int32)hid;
 			head.session = (apr_int32)session;
 			if (head.order < 0x80000000 || (head.order >> 24) == 0xff) {
-				itm_dgram_data(&remote, &head, itm_zdata + 16, size - 16);
+				itm_dgram_data(af, remote, &head, itm_zdata + 16, size - 16);
 			}	else {
-				itm_dgram_cmd(&remote, &head, itm_zdata + 16, size - 16);
+				itm_dgram_cmd(af, remote, &head, itm_zdata + 16, size - 16);
 			}
 		}	else
 		if (size > 0 && (itm_logmask & ITML_LOST)) {
-			itm_log(ITML_LOST, "dgram data format error from ", itm_epname(&remote));
+			itm_log(ITML_LOST, "dgram data format error from ", itm_ntop(af, remote));
 		}
 	}
 	return 0;
@@ -558,8 +646,8 @@ int itm_data_outer(struct ITMD *itmd)
 		if (itm_logmask & ITML_DATA) {
 			long logsize = length;
 			if (itm_headmod == ITMH_RAWDATA) logsize -= itm_hdrsize;
-			itm_log(ITML_DATA, "recv %ld bytes data from %s hid=%XH channel=%d", 
-				logsize, itm_epname(&itmd->remote), itmd->hid, itmd->channel);
+			itm_log(ITML_DATA, "recv %ld bytes data from hid=%XH channel=%d %s", 
+				logsize, itmd->hid, itmd->channel, itm_epname(itmd));
 		}
 	}
 
@@ -722,8 +810,8 @@ int itm_on_logon(struct ITMD *itmd)
 	}
 	itmd->channel = c;
 
-	itm_log(ITML_INFO, "channel %d started from connection %s hid=%XH", 
-		c, itm_epname(&itmd->remote), itmd->hid);
+	itm_log(ITML_INFO, "channel %d started from connection hid=%XH %s", 
+		c, itmd->hid, itm_epname(itmd));
 
 	channel = itm_rchannel(0);
 	if (channel && c != 0) {	// 如果其他频道则通知通道 0
@@ -814,16 +902,16 @@ int itm_on_data(struct ITMD *itmd, long wparam, long lparam, long length)
 		if (itm_logmask & ITML_DATA) {
 			long logsize = dlength + itm_hdrsize;
 			if (itm_headmod == ITMH_RAWDATA) logsize = dlength;
-			itm_log(ITML_DATA, "channel %d send %ld bytes data to %s hid=%XH", 
-				itmd->channel, logsize, itm_epname(&to->remote), to->hid);
+			itm_log(ITML_DATA, "channel %d send %ld bytes data to hid=%XH %s", 
+				itmd->channel, logsize, to->hid, itm_epname(to));
 		}
 
 		itm_bcheck(to);
 		itm_stat_send++;
 	}	else {
 		if (itm_logmask & ITML_DATA) {
-			itm_log(ITML_DATA, "channel %d discard sending data to %s hid=%XH",
-				itmd->channel, itm_epname(&to->remote), to->hid);
+			itm_log(ITML_DATA, "channel %d discard sending data to hid=%XH %s",
+				itmd->channel, to->hid, itm_epname(to));
 		}
 		itm_stat_discard++;
 	}
@@ -857,8 +945,8 @@ int itm_on_close(struct ITMD *itmd, long wparam, long lparam, long length)
 		itm_trysend(to);
 	}
 
-	itm_log(ITML_INFO, "channel %d closing user %s hid=%XH: %d", 
-		itmd->channel, itm_epname(&to->remote), to->hid, lparam);
+	itm_log(ITML_INFO, "channel %d closing user hid=%XH %s: %d", 
+		itmd->channel, to->hid, itm_epname(to), lparam);
 
 	itm_event_close(to, lparam);
 
@@ -888,8 +976,8 @@ int itm_on_tag(struct ITMD *itmd, long wparam, long lparam, long length)
 		return 0; 
 	}
 	to->tag = lparam;
-	itm_log(ITML_DATA, "channel %d set tag to %d for %s hid=%XH: ", 
-		itmd->channel, lparam, itm_epname(&to->remote), wparam);
+	itm_log(ITML_DATA, "channel %d set tag to %d for hid=%XH %s: ", 
+		itmd->channel, lparam, wparam, itm_epname(to));
 
 	wparam = wparam;
 	lparam = lparam;
@@ -1055,8 +1143,8 @@ int itm_on_dgram(struct ITMD *itmd, long wparam, long lparam, long length)
 
 	// 向具体的连接发送数据
 	if (itm_logmask & ITML_DATA) {
-		itm_log(ITML_DATA, "channel %d send %d bytes dgram to %s hid=%XH", 
-			itmd->channel, dlength + 2, itm_epname(&to->remote), to->hid);
+		itm_log(ITML_DATA, "channel %d send %d bytes dgram to hid=%XH %s", 
+			itmd->channel, dlength + 2, to->hid, itm_epname(to));
 	}
 
 	itm_sendto(to, itm_data + itm_headlen, dlength);
@@ -1251,7 +1339,7 @@ int itm_on_syscd(struct ITMD *itmd, long wparam, long lparam, long length)
 //---------------------------------------------------------------------
 // 处理报文数据
 //---------------------------------------------------------------------
-int itm_dgram_data(struct sockaddr *remote, struct ITMHUDP *head, void *data, long size)
+int itm_dgram_data(int af, struct sockaddr *remote, struct ITMHUDP *head, void *data, long size)
 { 
 	struct ITMD *itmd;
 	struct ITMD *channel;
@@ -1259,7 +1347,7 @@ int itm_dgram_data(struct sockaddr *remote, struct ITMHUDP *head, void *data, lo
 
 	itmd = itm_hid_itmd(head->hid);
 	if (itmd == NULL) {
-		itm_log(ITML_LOST, "[DROP] dgram session error from %s", itm_epname(remote));
+		itm_log(ITML_LOST, "[DROP] dgram session error from %s", itm_ntop(af, remote));
 		return 0;
 	}
 	if (itmd->session != head->session) {
@@ -1306,8 +1394,8 @@ int itm_dgram_data(struct sockaddr *remote, struct ITMHUDP *head, void *data, lo
 		itm_send(channel, itm_data, itm_headlen);
 		itm_send(channel, data, size);
 		if (itm_logmask & ITML_DATA) {
-			itm_log(ITML_DATA, "recv %d bytes dgram from %s hid=%XH channel=%d", 
-				size, itm_epname(&itmd->remote), itmd->hid, itmd->channel);
+			itm_log(ITML_DATA, "recv %d bytes dgram from hid=%XH channel=%d %s", 
+				size, itmd->hid, itmd->channel, itm_epname(itmd));
 		}
 	}	
 	else if (category < 0x200 && itm_booklen[category] > 0) {
@@ -1323,8 +1411,8 @@ int itm_dgram_data(struct sockaddr *remote, struct ITMHUDP *head, void *data, lo
 			}
 		}
 		if (itm_logmask & ITML_DATA) {
-			itm_log(ITML_DATA, "recv %d bytes dgram from %s hid=%XH channel=%d (category=%d)", 
-				size, itm_epname(&itmd->remote), itmd->hid, itmd->channel, category);
+			itm_log(ITML_DATA, "recv %d bytes dgram from hid=%XH channel=%d (category=%d) %s", 
+				size, itmd->hid, itmd->channel, category, itm_epname(itmd));
 		}
 	}
 
@@ -1334,12 +1422,17 @@ int itm_dgram_data(struct sockaddr *remote, struct ITMHUDP *head, void *data, lo
 //---------------------------------------------------------------------
 // 处理报文命令
 //---------------------------------------------------------------------
-int itm_dgram_cmd(struct sockaddr *remote, struct ITMHUDP *head, void *data, long size)
+int itm_dgram_cmd(int af, struct sockaddr *remote, struct ITMHUDP *head, void *data, long size)
 {
 	unsigned long sender, port;
 	int cmd = head->order & 0x7fffffff;
 	struct sockaddr_in *ep;
 	struct ITMD *itmd;
+	int addrlen = sizeof(struct sockaddr_in);
+
+#ifdef AF_INET6
+	addrlen = sizeof(struct sockaddr_in6);
+#endif
 
 	switch(cmd) 
 	{
@@ -1347,41 +1440,67 @@ int itm_dgram_cmd(struct sockaddr *remote, struct ITMHUDP *head, void *data, lon
 		itmd = itm_hid_itmd(head->hid);
 		if (itmd == NULL) {
 			itm_log(ITML_LOST, "[DROP] dgram touching failed to hid=%XH from %s",
-				head->hid, itm_epname(remote));
+				head->hid, itm_ntop(af, remote));
 			break;
 		}
 		if (itmd->session != head->session) {
 			itm_log(ITML_LOST, "[DROP] dgram touching error to hid=%XH from %s",
-			head->hid, itm_epname(remote));
+			head->hid, itm_ntop(af, remote));
 			break;
 		}
-		memcpy(&(itmd->dgramp), remote, sizeof(struct sockaddr));
+		if (af == AF_INET) {
+			memcpy(&(itmd->dgramp4), remote, sizeof(struct sockaddr));
+		#ifdef AF_INET6
+			memset(&(itmd->dgramp6), 0, sizeof(itmd->dgramp6));
+		#endif
+		}	else {
+			memset(&(itmd->dgramp4), 0, sizeof(itmd->dgramp4));
+		#ifdef AF_INET6
+			memcpy(&(itmd->dgramp6), remote, sizeof(struct sockaddr_in6));
+		#endif
+		}
 		itmd->touched = 1;
-		itmd->dgramp = *remote;
-		itm_sendudp(remote, head, data, size);
-		itm_log(ITML_INFO, "dgram touched to hid=%XH from %s", head->hid, itm_epname(remote));
+		itm_sendudp(af, remote, head, data, size);
+		itm_log(ITML_INFO, "dgram touched to hid=%XH from %s", head->hid, itm_ntop(af, remote));
 		break;
 	case ITMU_ECHO:
-		itm_sendudp(remote, head, data, size);
+		itm_sendudp(af, remote, head, data, size);
 		break;
 	case ITMU_MIRROR:
-		itm_sendudp(remote, head, remote, sizeof(struct sockaddr));
+		itm_sendudp(af, remote, head, remote, addrlen);
 		break;
 	case ITMU_DELIVER:
-		ep = (struct sockaddr_in*)remote;
-		ep->sin_addr.s_addr = head->index;
-		ep->sin_port = htons((unsigned short)(head->session));
-		itm_sendudp(remote, NULL, data, size);
+		if (af == AF_INET) {
+			ep = (struct sockaddr_in*)remote;
+			ep->sin_addr.s_addr = head->index;
+			ep->sin_port = htons((unsigned short)(head->session));
+			itm_sendudp(af, remote, NULL, data, size);
+		}	else {
+	#ifdef AF_INET6
+			itm_sendudp(af, (struct sockaddr*)data, NULL, 
+				(const char*)data + addrlen, size - addrlen);
+	#endif
+		}
 		break;
 	case ITMU_FORWARD:
-		ep = (struct sockaddr_in*)remote;
-		sender = ep->sin_addr.s_addr;
-		port = ntohs(ep->sin_port);
-		ep->sin_addr.s_addr = head->index;
-		ep->sin_port = htons((unsigned short)(head->session));
-		head->index = sender;
-		head->session = htons((unsigned short)(port));
-		itm_sendudp(remote, head, data, size);
+		if (af == AF_INET) {
+			ep = (struct sockaddr_in*)remote;
+			sender = ep->sin_addr.s_addr;
+			port = ntohs(ep->sin_port);
+			ep->sin_addr.s_addr = head->index;
+			ep->sin_port = htons((unsigned short)(head->session));
+			head->index = sender;
+			head->session = htons((unsigned short)(port));
+			itm_sendudp(af, remote, head, data, size);
+		}	else {
+	#ifdef AF_INET6
+			struct sockaddr_in6 target;
+			memcpy(&target, data, addrlen);
+			memcpy(data, remote, addrlen);
+			itm_sendudp(af, (struct sockaddr*)&target, head, 
+				(const char*)data, size);
+	#endif
+		}
 		break;
 	default:
 		break;
