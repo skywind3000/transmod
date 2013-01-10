@@ -147,7 +147,7 @@ int apr_close(int sock)
 int apr_connect(int sock, const struct sockaddr *addr, int addrlen)
 {
 	DSOCKLEN_T len = sizeof(struct sockaddr);
-#ifdef _MSC_VER
+#ifdef _WIN32
 	unsigned char remote[32];
 	if (addrlen == 24) {
 		memset(remote, 0, 32);
@@ -175,7 +175,7 @@ int apr_bind(int sock, const struct sockaddr *addr, int addrlen)
 {
 	DSOCKLEN_T len = sizeof(struct sockaddr);
 	int hr;
-#ifdef _MSC_VER
+#ifdef _WIN32
 	unsigned char remote[32];
 	if (addrlen == 24) {
 		memset(remote, 0, 32);
@@ -205,20 +205,20 @@ int apr_accept(int sock, struct sockaddr *addr, int *addrlen)
 	DSOCKLEN_T len = sizeof(struct sockaddr);
 	struct sockaddr *target = addr;
 	int hr;
-#ifdef _MSC_VER
+#ifdef _WIN32
 	unsigned char remote[32];
 #endif
 	if (addrlen) {
 		len = (addrlen[0] > 0)? (DSOCKLEN_T)addrlen[0] : len;
 	}
-#ifdef _MSC_VER
+#ifdef _WIN32
 	if (len == 24) {
 		target = (struct sockaddr *)remote;
 		len = 28;
 	}
 #endif
 	hr = (int)accept(sock, target, &len);
-#ifdef _MSC_VER
+#ifdef _WIN32
 	if (target != addr) {
 		memcpy(addr, remote, 24);
 		len = 24;
@@ -264,7 +264,7 @@ int apr_recv(int sock, void *buf, long size, int mode)
 int apr_sendto(int sock, const void *buf, long size, int mode, const struct sockaddr *addr, int addrlen)
 {
 	DSOCKLEN_T len = sizeof(struct sockaddr);
-#ifdef _MSC_VER
+#ifdef _WIN32
 	unsigned char remote[32];
 	if (addrlen == 24) {
 		memset(remote, 0, 32);
@@ -285,20 +285,20 @@ int apr_recvfrom(int sock, void *buf, long size, int mode, struct sockaddr *addr
 	DSOCKLEN_T len = sizeof(struct sockaddr);
 	struct sockaddr *target = addr;
 	int hr;
-#ifdef _MSC_VER
+#ifdef _WIN32
 	unsigned char remote[32];
 #endif
 	if (addrlen) {
 		len = (addrlen[0] > 0)? (DSOCKLEN_T)addrlen[0] : len;
 	}
-#ifdef _MSC_VER
+#ifdef _WIN32
 	if (len == 24) {
 		target = (struct sockaddr *)remote;
 		len = 28;
 	}
 #endif
 	hr = (int)recvfrom(sock, (char*)buf, size, mode, target, &len);
-#ifdef _MSC_VER
+#ifdef _WIN32
 	if (target != addr) {
 		memcpy(addr, remote, 24);
 		len = 24;
@@ -351,20 +351,20 @@ int apr_sockname(int sock, struct sockaddr *addr, int *addrlen)
 	DSOCKLEN_T len = sizeof(struct sockaddr);
 	struct sockaddr *target = addr;
 	int hr;
-#ifdef _MSC_VER
+#ifdef _WIN32
 	unsigned char remote[32];
 #endif
 	if (addrlen) {
 		len = (addrlen[0] > 0)? (DSOCKLEN_T)addrlen[0] : len;
 	}
-#ifdef _MSC_VER
+#ifdef _WIN32
 	if (len == 24) {
 		target = (struct sockaddr *)remote;
 		len = 28;
 	}
 #endif
 	hr = (int)getsockname(sock, target, &len);
-#ifdef _MSC_VER
+#ifdef _WIN32
 	if (target != addr) {
 		memcpy(addr, remote, 24);
 		len = 24;
@@ -382,20 +382,20 @@ int apr_peername(int sock, struct sockaddr *addr, int *addrlen)
 	DSOCKLEN_T len = sizeof(struct sockaddr);
 	struct sockaddr *target = addr;
 	int hr;
-#ifdef _MSC_VER
+#ifdef _WIN32
 	unsigned char remote[32];
 #endif
 	if (addrlen) {
 		len = (addrlen[0] > 0)? (DSOCKLEN_T)addrlen[0] : len;
 	}
-#ifdef _MSC_VER
+#ifdef _WIN32
 	if (len == 24) {
 		target = (struct sockaddr *)remote;
 		len = 28;
 	}
 #endif
 	hr = (int)getpeername(sock, target, &len);
-#ifdef _MSC_VER
+#ifdef _WIN32
 	if (target != addr) {
 		memcpy(addr, remote, 24);
 		len = 24;
