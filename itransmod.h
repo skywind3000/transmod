@@ -52,12 +52,18 @@ extern "C" {
 // Global Variables Definition
 //=====================================================================
 
-extern int itm_outer_port;	// 对外监听端口
-extern int itm_inner_port;	// 对内监听端口
-extern int itm_dgram_port;	// 数据报端口
-extern int itm_outer_sock;	// 对外监听套接字
-extern int itm_inner_sock;	// 对内监听套接字
-extern int itm_dgram_sock;	// 数据报套接字
+extern int itm_outer_port4;	// IPv4 对外监听端口
+extern int itm_inner_port4;	// IPv4 对内监听端口
+extern int itm_dgram_port4;	// IPv4 数据报端口
+extern int itm_outer_port6;	// IPv6 对外监听端口 
+extern int itm_inner_port6;	// IPv6 对内监听端口
+extern int itm_dgram_port6;	// IPv6 数据报端口
+extern int itm_outer_sock4;	// 对外监听套接字
+extern int itm_inner_sock4;	// 对内监听套接字
+extern int itm_dgram_sock4;	// 数据报套接字
+extern int itm_outer_sock6;	// IPv6 对外监听套接字
+extern int itm_inner_sock6;	// IPv6 对内监听套接字
+extern int itm_dgram_sock6;	// IPv6 数据报套接字
 extern int itm_outer_max;	// 对外最大连接
 extern int itm_inner_max;	// 对内最大连接
 extern int itm_outer_cnt;	// 对外当前连接
@@ -84,9 +90,10 @@ extern long itm_wtime;		// 世界时钟
 extern long itm_datamax;	// 最长的数据
 extern long itm_limit;		// 发送缓存超过就断开
 
-extern long itm_inner_addr;	// 内部监听绑定的IP
-extern long itm_logmask;	// 日志级别，0 为不输出日志
-extern char itm_msg[];		// 消息字符串
+extern long itm_logmask;		// 日志级别，0 为不输出日志
+extern char itm_msg[];			// 消息字符串
+extern long itm_inner_addr4;	// 内部监听绑定的IP
+extern char itm_inner_addr6[];	// 内部监听绑定的 IPv6地址
 
 extern long itm_outer_blimit;	// 外部套接字缓存极限
 extern long itm_inner_blimit;	// 内部频道缓存极限
@@ -133,12 +140,19 @@ extern int itm_noreuse;					// 禁止地址复用
 //=====================================================================
 // ITM Connection Description Definition
 //=====================================================================
-#define ITMD_OUTER_HOST		0	// 套接字模式：外部监听的套接字
-#define ITMD_INNER_HOST		1	// 套接字模式：内部监听的套接字
-#define ITMD_OUTER_CLIENT	2	// 套接字模式：外部连接的套接字
-#define ITMD_INNER_CLIENT	3	// 套接字模式：内部连接的套接字
-#define ITMD_DGRAM_HOST		4	// 套接字模式：数据报的套接字
+#define ITMD_OUTER_HOST4	0	// 套接字模式：IPv4 外部监听的套接字
+#define ITMD_INNER_HOST4	1	// 套接字模式：IPv4 内部监听的套接字
+#define ITMD_OUTER_HOST6	2	// 套接字模式：IPv6 外部监听的套接字
+#define ITMD_INNER_HOST6	3	// 套接字模式：IPv6 内部监听的套接字
+#define ITMD_DGRAM_HOST4	4	// 套接字模式：IPv4 数据报的套接字
+#define ITMD_DGRAM_HOST6	5	// 套接字模式：IPv6 数据报的套接字
+#define ITMD_OUTER_CLIENT	6	// 套接字模式：外部连接的套接字
+#define ITMD_INNER_CLIENT	7	// 套接字模式：内部连接的套接字
 
+#define ITMD_HOST_IS_OUTER(mode)	(((mode) & 1) == 0)
+#define ITMD_HOST_IS_INNER(mode)	(((mode) & 1) == 1)
+#define ITMD_HOST_IS_IPV4(mode)		(((mode) <= 1) || (mode) == ITMD_DGRAM_HOST4)
+#define ITMD_HOST_IS_IPV6(mode)		(!ITMD_HOST_IS_IPV4(mode))
 
 struct ITMD
 {
@@ -158,8 +172,6 @@ struct ITMD
 	long inwlist;				// 是否在发送列表中
 	struct IVQNODE wnode;		// 等待队列中的节点
 	struct IVQUEUE waitq;		// 等待队列
-	struct sockaddr remote;		// 远程地址
-	struct sockaddr dgramp;		// 数据报地址
 	struct IMSTREAM rstream;	// 读入流
 	struct IMSTREAM wstream;	// 写出流
 	unsigned long cnt_tcpr;		// TCP接收计数器
@@ -171,6 +183,13 @@ struct ITMD
 	unsigned char history2;		// 历史字符串
 	unsigned char history3;		// 历史字符串
 	unsigned char history4;		// 历史字符串
+	struct sockaddr_in remote4;		// 远程地址
+	struct sockaddr_in dgramp4;		// 数据报地址
+#ifdef AF_INET6
+	struct sockaddr_in6 remote6;	// IPv6 远端地址
+	struct sockaddr_in6 dgramp6;	// IPv6 数据报地址
+#endif
+	int IsIPv6;					// 是否使用 IPv6
 #ifndef IDISABLE_RC4			// 判断 RC4功能是否被禁止
 	int rc4_send_x;				// RC4 发送加密位置1
 	int rc4_send_y;				// RC4 发送加密位置2
@@ -217,8 +236,16 @@ extern struct ITMD **itm_host;		// 内部Channel列表指针
 extern char *itm_data;				// 内部数据字节指针
 extern char *itm_crypt;				// 内部数据加密指针
 
+extern struct ITMD itmd_inner4;		// IPv4 内部监听的ITMD(套接字描述)
+extern struct ITMD itmd_outer4;		// IPv4 外部监听的ITMD(套接字描述)
+extern struct ITMD itmd_dgram4;		// IPv4 数据报套接字的ITMD
+extern struct ITMD itmd_inner6;		// IPv6 内部监听的ITMD(套接字描述)
+extern struct ITMD itmd_outer6;		// IPv6 外部监听的ITMD(套接字描述)
+extern struct ITMD itmd_dgram6;		// IPv6 数据报套接字的ITMD
 
-extern struct IMSTREAM itm_dgramdat;	// 数据报缓存
+extern struct IMSTREAM itm_dgramdat4;	// IPv4 数据报缓存
+extern struct IMSTREAM itm_dgramdat6;	// IPv6 数据报缓存
+
 
 //=====================================================================
 // Public Method Definition
@@ -241,7 +268,7 @@ int itm_timer(void);				// 时钟控制
 //=====================================================================
 long itm_trysend(struct ITMD *itmd);	// 尝试发送 wstream
 long itm_tryrecv(struct ITMD *itmd);	// 尝试接收 rstream
-long itm_trysendto(void);				// 尝试发送数据报
+long itm_trysendto(int af);				// 尝试发送数据报
 
 extern long itm_local1;		// 局部变量用作临时参数定义1
 extern long itm_local2;		// 局部变量用作临时参数定义2
@@ -257,7 +284,8 @@ int itm_permitr(struct ITMD *itmd);				// 允许一个READ事件
 #define ITM_WRITE	2			// 套接字事件方式：写
 
 #define ITM_BUFSIZE 0x10000		// 接收发送临时缓存
-#define ITM_ADDRSIZE (sizeof(struct sockaddr))
+#define ITM_ADDRSIZE4 (sizeof(struct sockaddr))
+#define ITM_ADDRSIZE6 (sizeof(struct sockaddr_in6))
 
 extern char itm_zdata[];		// 底层数据收发缓存
 
@@ -267,7 +295,11 @@ extern int itm_booklen[512];	// 每种事件关注的频道数量
 int itm_mask(struct ITMD *itmd, int enable, int disable);	// 设置事件捕捉
 int itm_send(struct ITMD *itmd, const void *data, long length);	// 发送数据
 int itm_bcheck(struct ITMD *itmd);				// 检查缓存
-char *itm_epname(const struct sockaddr *ep);	// 取得端点名称
+
+char *itm_epname4(const struct sockaddr *ep);	// 取得端点名称
+char *itm_epname6(const struct sockaddr *ep);	// 取得端点名称
+char *itm_epname(const struct ITMD *itmd);
+char *itm_ntop(int af, const struct sockaddr *remote);
 
 int itm_book_add(int category, int channel);	// 增加关注
 int itm_book_del(int category, int channel);	// 取消关注
@@ -301,7 +333,7 @@ struct ITMHUDP
 #define ITMU_FORWARD 0x6004		// 命令：转发
 
 
-int itm_sendudp(struct sockaddr *remote, struct ITMHUDP *head, const void *data, long len);
+int itm_sendudp(int af, struct sockaddr *remote, struct ITMHUDP *head, const void *data, long len);
 int itm_sendto(struct ITMD *itmd, const void *data, long length);	// 发送数据报
 int itm_optitmd(struct ITMD *itmd, int flags);						// 设置连接参数
 
@@ -427,10 +459,10 @@ int itm_event_accept(int hmode);						// 事件：接收新连接
 int itm_event_close(struct ITMD *itmd, int code);		// 事件：关闭连接
 int itm_event_recv(struct ITMD *itmd);					// 事件：接收
 int itm_event_send(struct ITMD *itmd);					// 事件：发送
-int itm_event_dgram(void);								// 事件：数据报到达
+int itm_event_dgram(int af);							// 事件：数据报到达
 
-int itm_dgram_data(struct sockaddr *remote, struct ITMHUDP *head, void *data, long size);
-int itm_dgram_cmd(struct sockaddr *remote, struct ITMHUDP *head, void *data, long size);
+int itm_dgram_data(int af, struct sockaddr *remote, struct ITMHUDP *head, void *data, long size);
+int itm_dgram_cmd(int af, struct sockaddr *remote, struct ITMHUDP *head, void *data, long size);
 
 //---------------------------------------------------------------------
 // 频道事件处理

@@ -18,8 +18,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
+#include <ctype.h>
 #include <time.h>
+#include <assert.h>
 
 #ifdef __unix
 #include <netdb.h>
@@ -32,7 +33,7 @@
 #include <poll.h>
 #include <netinet/tcp.h>
 
-#elif (defined(_WIN32) || defined(WIN32))
+#elif defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(WIN64)
 #if ((!defined(_M_PPC)) && (!defined(_M_PPC_BE)) && (!defined(_XBOX)))
 #include <mmsystem.h>
 #include <mswsock.h>
@@ -72,14 +73,37 @@ typedef int DSOCKLEN_T;
 //---------------------------------------------------------------------
 // 开始网络
 //---------------------------------------------------------------------
-int apr_netstart(int v)
+int apr_netstart(void)
 {
+	#if defined(_WIN32) || defined(WIN32)
+	static int inited = 0;
+	WSADATA WSAData;
 	int retval = 0;
-	#ifdef _WIN32
-	struct WSAData wsa;
-	retval = (int)WSAStartup((unsigned short)v, &wsa);	
+
+	#ifdef _XBOX
+    XNetStartupParams xnsp;
 	#endif
-	return retval;
+
+	if (inited == 0) {
+		#ifdef _XBOX
+		memset(&xnsp, 0, sizeof(xnsp));
+		xnsp.cfgSizeOfStruct = sizeof(XNetStartupParams);
+		xnsp.cfgFlags = XNET_STARTUP_BYPASS_SECURITY;
+		XNetStartup(&xnsp);
+		#endif
+
+		retval = WSAStartup(0x202, &WSAData);
+		if (WSAData.wVersion != 0x202) {
+			WSACleanup();
+			fprintf(stderr, "WSAStartup failed !!\n");
+			fflush(stderr);
+			return -1;
+		}
+
+		inited = 1;
+	}
+	#endif
+	return 0;
 }
 
 //---------------------------------------------------------------------
@@ -123,6 +147,15 @@ int apr_close(int sock)
 int apr_connect(int sock, const struct sockaddr *addr, int addrlen)
 {
 	DSOCKLEN_T len = sizeof(struct sockaddr);
+#ifdef _MSC_VER
+	unsigned char remote[32];
+	if (addrlen == 24) {
+		memset(remote, 0, 32);
+		memcpy(remote, addr, 24);
+		addrlen = 28;
+		addr = (const struct sockaddr *)remote;
+	}
+#endif
 	if (addrlen > 0) len = (DSOCKLEN_T)addrlen;
 	return connect(sock, addr, len);
 }
@@ -141,8 +174,19 @@ int apr_shutdown(int sock, int mode)
 int apr_bind(int sock, const struct sockaddr *addr, int addrlen)
 {
 	DSOCKLEN_T len = sizeof(struct sockaddr);
+	int hr;
+#ifdef _MSC_VER
+	unsigned char remote[32];
+	if (addrlen == 24) {
+		memset(remote, 0, 32);
+		memcpy(remote, addr, 24);
+		addrlen = 28;
+		addr = (const struct sockaddr *)remote;
+	}
+#endif
 	if (addrlen > 0) len = (DSOCKLEN_T)addrlen;
-	return bind(sock, addr, len);
+	hr = bind(sock, addr, len);
+	return hr;
 }
 
 //---------------------------------------------------------------------
@@ -159,11 +203,27 @@ int apr_listen(int sock, int count)
 int apr_accept(int sock, struct sockaddr *addr, int *addrlen)
 {
 	DSOCKLEN_T len = sizeof(struct sockaddr);
+	struct sockaddr *target = addr;
 	int hr;
+#ifdef _MSC_VER
+	unsigned char remote[32];
+#endif
 	if (addrlen) {
 		len = (addrlen[0] > 0)? (DSOCKLEN_T)addrlen[0] : len;
 	}
-	hr = (int)accept(sock, addr, &len);
+#ifdef _MSC_VER
+	if (len == 24) {
+		target = (struct sockaddr *)remote;
+		len = 28;
+	}
+#endif
+	hr = (int)accept(sock, target, &len);
+#ifdef _MSC_VER
+	if (target != addr) {
+		memcpy(addr, remote, 24);
+		len = 24;
+	}
+#endif
 	if (addrlen) addrlen[0] = (int)len;
 	return hr;
 }
@@ -204,6 +264,15 @@ int apr_recv(int sock, void *buf, long size, int mode)
 int apr_sendto(int sock, const void *buf, long size, int mode, const struct sockaddr *addr, int addrlen)
 {
 	DSOCKLEN_T len = sizeof(struct sockaddr);
+#ifdef _MSC_VER
+	unsigned char remote[32];
+	if (addrlen == 24) {
+		memset(remote, 0, 32);
+		memcpy(remote, addr, 24);
+		addrlen = 28;
+		addr = (const struct sockaddr *)remote;
+	}
+#endif
 	if (addrlen > 0) len = addrlen;
 	return sendto(sock, (char*)buf, size, mode, addr, len);
 }
@@ -214,11 +283,27 @@ int apr_sendto(int sock, const void *buf, long size, int mode, const struct sock
 int apr_recvfrom(int sock, void *buf, long size, int mode, struct sockaddr *addr, int *addrlen)
 {
 	DSOCKLEN_T len = sizeof(struct sockaddr);
+	struct sockaddr *target = addr;
 	int hr;
+#ifdef _MSC_VER
+	unsigned char remote[32];
+#endif
 	if (addrlen) {
 		len = (addrlen[0] > 0)? (DSOCKLEN_T)addrlen[0] : len;
 	}
-	hr = (int)recvfrom(sock, (char*)buf, size, mode, addr, &len);
+#ifdef _MSC_VER
+	if (len == 24) {
+		target = (struct sockaddr *)remote;
+		len = 28;
+	}
+#endif
+	hr = (int)recvfrom(sock, (char*)buf, size, mode, target, &len);
+#ifdef _MSC_VER
+	if (target != addr) {
+		memcpy(addr, remote, 24);
+		len = 24;
+	}
+#endif
 	if (addrlen) addrlen[0] = (int)len;
 	return hr;
 }
@@ -264,11 +349,27 @@ int apr_getsockopt(int sock, int level, int optname, char *optval, int *optlen)
 int apr_sockname(int sock, struct sockaddr *addr, int *addrlen)
 {
 	DSOCKLEN_T len = sizeof(struct sockaddr);
+	struct sockaddr *target = addr;
 	int hr;
+#ifdef _MSC_VER
+	unsigned char remote[32];
+#endif
 	if (addrlen) {
 		len = (addrlen[0] > 0)? (DSOCKLEN_T)addrlen[0] : len;
 	}
-	hr = (int)getsockname(sock, addr, &len);
+#ifdef _MSC_VER
+	if (len == 24) {
+		target = (struct sockaddr *)remote;
+		len = 28;
+	}
+#endif
+	hr = (int)getsockname(sock, target, &len);
+#ifdef _MSC_VER
+	if (target != addr) {
+		memcpy(addr, remote, 24);
+		len = 24;
+	}
+#endif
 	if (addrlen) addrlen[0] = (int)len;
 	return hr;
 }
@@ -279,11 +380,27 @@ int apr_sockname(int sock, struct sockaddr *addr, int *addrlen)
 int apr_peername(int sock, struct sockaddr *addr, int *addrlen)
 {
 	DSOCKLEN_T len = sizeof(struct sockaddr);
+	struct sockaddr *target = addr;
 	int hr;
+#ifdef _MSC_VER
+	unsigned char remote[32];
+#endif
 	if (addrlen) {
 		len = (addrlen[0] > 0)? (DSOCKLEN_T)addrlen[0] : len;
 	}
-	hr = (int)getpeername(sock, addr, &len);
+#ifdef _MSC_VER
+	if (len == 24) {
+		target = (struct sockaddr *)remote;
+		len = 28;
+	}
+#endif
+	hr = (int)getpeername(sock, target, &len);
+#ifdef _MSC_VER
+	if (target != addr) {
+		memcpy(addr, remote, 24);
+		len = 24;
+	}
+#endif
 	if (addrlen) addrlen[0] = (int)len;
 	return hr;
 }
@@ -535,6 +652,304 @@ char *apr_errstr(int errnum, char *msg, int size)
 	LocalFree(lpMessageBuf);
 #endif
 	return lptr;
+}
+
+
+
+//---------------------------------------------------------------------
+// IPV4/IPV6 地址帮助
+//---------------------------------------------------------------------
+#ifndef APR_IN6ADDRSZ
+#define	APR_IN6ADDRSZ	16
+#endif
+
+#ifndef APR_INT16SZ
+#define	APR_INT16SZ		2
+#endif
+
+#ifndef APR_INADDRSZ
+#define	APR_INADDRSZ	4
+#endif
+
+/* convert presentation format to network format */
+static int apr_pton4(const char *src, unsigned char *dst)
+{
+	unsigned int val;
+	unsigned int digit;
+	int base, n;
+	unsigned char c;
+	unsigned int parts[4];
+	register unsigned int *pp = parts;
+	int pton = 1;
+	c = *src;
+	for (;;) {
+		if (!isdigit(c)) return -1;
+		val = 0; base = 10;
+		if (c == '0') {
+			c = *++src;
+			if (c == 'x' || c == 'X') base = 16, c = *++src;
+			else if (isdigit(c) && c != '9') base = 8;
+		}
+		if (pton && base != 10) return -1;
+		for (;;) {
+			if (isdigit(c)) {
+				digit = c - '0';
+				if (digit >= (unsigned int)base) break;
+				val = (val * base) + digit;
+				c = *++src;
+			}	else if (base == 16 && isxdigit(c)) {
+				digit = c + 10 - (islower(c) ? 'a' : 'A');
+				if (digit >= 16) break;
+				val = (val << 4) | digit;
+				c = *++src;
+			}	else {
+				break;
+			}
+		}
+		if (c == '.') {
+			if (pp >= parts + 3) return -1;
+			*pp++ = val;
+			c = *++src;
+		}	else {
+			break;
+		}
+	}
+
+	if (c != '\0' && !isspace(c)) return -1;
+
+	n = pp - parts + 1;
+	if (pton && n != 4) return -1;
+
+	switch (n) {
+	case 0: return -1;	
+	case 1:	break;
+	case 2:	
+		if (parts[0] > 0xff || val > 0xffffff) return -1;
+		val |= parts[0] << 24;
+		break;
+	case 3:	
+		if ((parts[0] | parts[1]) > 0xff || val > 0xffff) return -1;
+		val |= (parts[0] << 24) | (parts[1] << 16);
+		break;
+	case 4:	
+		if ((parts[0] | parts[1] | parts[2] | val) > 0xff) return -1;
+		val |= (parts[0] << 24) | (parts[1] << 16) | (parts[2] << 8);
+		break;
+	}
+	if (dst) {
+		val = htonl(val);
+		memcpy(dst, &val, APR_INADDRSZ);
+	}
+	return 0;
+}
+
+/* convert presentation format to network format */
+static int apr_pton6(const char *src, unsigned char *dst)
+{
+	static const char xdigits_l[] = "0123456789abcdef";
+	static const char xdigits_u[] = "0123456789ABCDEF";
+	unsigned char tmp[APR_IN6ADDRSZ], *tp, *endp, *colonp;
+	const char *xdigits, *curtok;
+	unsigned int val;
+	int ch, saw_xdigit;
+
+	memset((tp = tmp), '\0', APR_IN6ADDRSZ);
+	endp = tp + APR_IN6ADDRSZ;
+	colonp = NULL;
+	if (*src == ':')
+		if (*++src != ':')
+			return -1;
+	curtok = src;
+	saw_xdigit = 0;
+	val = 0;
+	while ((ch = *src++) != '\0') {
+		const char *pch;
+		if ((pch = strchr((xdigits = xdigits_l), ch)) == NULL)
+			pch = strchr((xdigits = xdigits_u), ch);
+		if (pch != NULL) {
+			val <<= 4;
+			val |= (pch - xdigits);
+			if (val > 0xffff) return -1;
+			saw_xdigit = 1;
+			continue;
+		}
+		if (ch == ':') {
+			curtok = src;
+			if (!saw_xdigit) {
+				if (colonp) return -1;
+				colonp = tp;
+				continue;
+			} 
+			else if (*src == '\0') {
+				return -1;
+			}
+			if (tp + APR_INT16SZ > endp) return -1;
+			*tp++ = (u_char) (val >> 8) & 0xff;
+			*tp++ = (u_char) val & 0xff;
+			saw_xdigit = 0;
+			val = 0;
+			continue;
+		}
+		if (ch == '.' && ((tp + APR_INADDRSZ) <= endp) &&
+		    apr_pton4(curtok, tp) > 0) {
+			tp += APR_INADDRSZ;
+			saw_xdigit = 0;
+			break;	
+		}
+		return -1;
+	}
+	if (saw_xdigit) {
+		if (tp + APR_INT16SZ > endp) return -1;
+		*tp++ = (u_char) (val >> 8) & 0xff;
+		*tp++ = (u_char) val & 0xff;
+	}
+	if (colonp != NULL) {
+		const int n = tp - colonp;
+		int i;
+		if (tp == endp) return -1;
+		for (i = 1; i <= n; i++) {
+			endp[- i] = colonp[n - i];
+			colonp[n - i] = 0;
+		}
+		tp = endp;
+	}
+	if (tp != endp) return -1;
+	memcpy(dst, tmp, APR_IN6ADDRSZ);
+	return 0;
+}
+
+/* convert presentation format to network format */
+static const char *
+apr_ntop4(const unsigned char *src, char *dst, size_t size)
+{
+	char tmp[64];
+	size_t len;
+	len = sprintf(tmp, "%u.%u.%u.%u", src[0], src[1], src[2], src[3]);
+	if (len >= size) {
+		errno = ENOSPC;
+		return NULL;
+	}
+	memcpy(dst, tmp, len + 1);
+	return dst;
+}
+
+/* convert presentation format to network format */
+static const char *
+apr_ntop6(const unsigned char *src, char *dst, size_t size)
+{
+	char tmp[64], *tp;
+	struct { int base, len; } best, cur;
+	unsigned int words[APR_IN6ADDRSZ / APR_INT16SZ];
+	int i, inc;
+
+	memset(words, '\0', sizeof(words));
+	best.base = best.len = 0;
+	cur.base = cur.len = 0;
+
+	for (i = 0; i < APR_IN6ADDRSZ; i++)
+		words[i / 2] |= (src[i] << ((1 - (i % 2)) << 3));
+
+	best.base = -1;
+	cur.base = -1;
+
+	for (i = 0; i < (APR_IN6ADDRSZ / APR_INT16SZ); i++) {
+		if (words[i] == 0) {
+			if (cur.base == -1) cur.base = i, cur.len = 1;
+			else cur.len++;
+		} 
+		else {
+			if (cur.base != -1) {
+				if (best.base == -1 || cur.len > best.len) best = cur;
+				cur.base = -1;
+			}
+		}
+	}
+	if (cur.base != -1) {
+		if (best.base == -1 || cur.len > best.len)
+			best = cur;
+	}
+	if (best.base != -1 && best.len < 2)
+		best.base = -1;
+
+	tp = tmp;
+	for (i = 0; i < (APR_IN6ADDRSZ / APR_INT16SZ); i++) {
+		if (best.base != -1 && i >= best.base &&
+			i < (best.base + best.len)) {
+			if (i == best.base)
+				*tp++ = ':';
+			continue;
+		}
+
+		if (i != 0) *tp++ = ':';
+		if (i == 6 && best.base == 0 &&
+			(best.len == 6 || (best.len == 5 && words[5] == 0xffff))) {
+			if (!apr_ntop4(src+12, tp, sizeof(tmp) - (tp - tmp)))
+				return NULL;
+			tp += strlen(tp);
+			break;
+		}
+		inc = sprintf(tp, "%x", words[i]);
+		tp += inc;
+	}
+
+	if (best.base != -1 && (best.base + best.len) == 
+		(APR_IN6ADDRSZ / APR_INT16SZ)) 
+		*tp++ = ':';
+
+	*tp++ = '\0';
+
+	if ((size_t)(tp - tmp) > size) {
+		errno = ENOSPC;
+		return NULL;
+	}
+	memcpy(dst, tmp, tp - tmp);
+	return dst;
+}
+
+
+//---------------------------------------------------------------------
+// 转换表示格式到网络格式 
+// 返回 0表示成功，支持 AF_INET/AF_INET6 
+//---------------------------------------------------------------------
+int apr_pton(int af, const char *src, void *dst)
+{
+	switch (af) {
+	case AF_INET:
+		return apr_pton4(src, (unsigned char*)dst);
+#if AF_INET6
+	case AF_INET6:
+		return apr_pton6(src, (unsigned char*)dst);
+#endif
+	default:
+		if (af == -6) {
+			return apr_pton6(src, (unsigned char*)dst);
+		}
+		errno = EAFNOSUPPORT;
+		return -1;
+	}
+}
+
+
+//---------------------------------------------------------------------
+// 转换网络格式到表示格式 
+// 支持 AF_INET/AF_INET6 
+//---------------------------------------------------------------------
+const char *apr_ntop(int af, const void *src, char *dst, size_t size)
+{
+	switch (af) {
+	case AF_INET:
+		return apr_ntop4((const unsigned char*)src, dst, size);
+	#ifdef AF_INET6
+	case AF_INET6:
+		return apr_ntop6((const unsigned char*)src, dst, size);
+	#endif
+	default:
+		if (af == -6) {
+			return apr_ntop6((const unsigned char*)src, dst, size);
+		}
+		errno = EAFNOSUPPORT;
+		return NULL;
+	}
 }
 
 

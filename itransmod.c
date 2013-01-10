@@ -33,13 +33,19 @@
 //=====================================================================
 // Global Variables Definition
 //=====================================================================
-int itm_outer_port = 3000;		// 对外监听端口
-int itm_inner_port = 3008;		// 对内监听端口
-int itm_dgram_port = 0;			// 数据报端口
+int itm_outer_port4 = 3000;		// IPv4 对外监听端口
+int itm_inner_port4 = 3008;		// IPv4 对内监听端口
+int itm_dgram_port4 = 0;		// IPv4 数据报端口
+int itm_outer_port6 = -1;		// IPv6 对外监听端口
+int itm_inner_port6 = -1;		// IPv6 对内监听端口
+int itm_dgram_port6 = -1;		// IPv6 数据报端口
 
-int itm_outer_sock = -1;		// 对外监听套接字
-int itm_inner_sock = -1;		// 对内监听套接字
-int itm_dgram_sock = -1;		// 数据报套接字
+int itm_outer_sock4 = -1;		// IPv4 对外监听套接字
+int itm_inner_sock4 = -1;		// IPv4 对内监听套接字
+int itm_dgram_sock4 = -1;		// IPv4 数据报套接字
+int itm_outer_sock6 = -1;		// IPv6 对外监听套接字
+int itm_inner_sock6 = -1;		// IPv6 对内监听套接字
+int itm_dgram_sock6 = -1;		// IPv6 数据报套接字
 
 int itm_outer_max = 8192;		// 对外最大连接
 int itm_inner_max = 4096;		// 对内最大连接
@@ -68,7 +74,7 @@ long itm_wtime  = 0;			// 世界时钟
 long itm_datamax = 0x200000;	// 最长数据长度
 long itm_limit = 0;				// 发送缓存最长数据
 
-long itm_inner_addr = 0;		// 内部监听绑定的IP
+long itm_inner_addr4 = 0;		// 内部监听绑定的IP
 long itm_logmask = 0;			// 日志掩码，0为不输出日志
 char itm_msg[4097];				// 消息字符串
 
@@ -88,11 +94,15 @@ char *itm_crypt = NULL;			// 内部数据加密指针
 long  itm_hostc= 0;				// 内部Channel数量
 long  itm_datac= 0;				// 内部数据长度
 
-static struct ITMD itmd_inner;	// 内部监听的ITMD(套接字描述)
-static struct ITMD itmd_outer;	// 外部监听的ITMD(套接字描述)
-static struct ITMD itmd_dgram;	// 数据报套接字的ITMD
+struct ITMD itmd_inner4;		// IPv4 内部监听的ITMD(套接字描述)
+struct ITMD itmd_outer4;		// IPv4 外部监听的ITMD(套接字描述)
+struct ITMD itmd_dgram4;		// IPv4 数据报套接字的ITMD
+struct ITMD itmd_inner6;		// IPv6 内部监听的ITMD(套接字描述)
+struct ITMD itmd_outer6;		// IPv6 外部监听的ITMD(套接字描述)
+struct ITMD itmd_dgram6;		// IPv6 数据报套接字的ITMD
 
-struct IMSTREAM itm_dgramdat;	// 数据报缓存
+struct IMSTREAM itm_dgramdat4;	// 数据报缓存
+struct IMSTREAM itm_dgramdat6;	// IPv6 数据报缓存
 
 static int itm_mode = 0;		// 系统模式
 static int itm_event_count = 0;	// 事件数量
@@ -140,6 +150,10 @@ apr_int64 itm_stat_recv = 0;		// 统计：接收了多少包
 apr_int64 itm_stat_discard = 0;		// 统计：放弃了多少个数据包
 
 int itm_noreuse = 0;				// 禁止地址复用
+
+// 内部监听绑定的 IPv6地址
+char itm_inner_addr6[32] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
 
 //=====================================================================
@@ -194,7 +208,7 @@ int itm_startup(void)
 		itm_log(ITML_BASE, "service starting failed: poll init error %d", retval);
 		return -30 + retval;
 	}
-	retval = apr_poll_add(itm_polld, itm_outer_sock, APOLL_IN, &itmd_outer);
+	retval = apr_poll_add(itm_polld, itm_outer_sock4, APOLL_IN, &itmd_outer4);
 	if (retval) {
 		itm_socket_release();
 		apr_poll_destroy(itm_polld);
@@ -202,7 +216,7 @@ int itm_startup(void)
 		itm_log(ITML_BASE, "service starting failed: poll event error %d", retval);
 		return -40 + retval;
 	}
-	retval = apr_poll_add(itm_polld, itm_inner_sock, APOLL_IN, &itmd_inner);
+	retval = apr_poll_add(itm_polld, itm_inner_sock4, APOLL_IN, &itmd_inner4);
 	if (retval) {
 		itm_socket_release();
 		apr_poll_destroy(itm_polld);
@@ -210,7 +224,7 @@ int itm_startup(void)
 		itm_log(ITML_BASE, "service starting failed: poll event error %d", retval);
 		return -50 + retval;
 	}
-	retval = apr_poll_add(itm_polld, itm_dgram_sock, 0, &itmd_dgram);
+	retval = apr_poll_add(itm_polld, itm_dgram_sock4, 0, &itmd_dgram4);
 	if (retval) {
 		itm_socket_release();
 		apr_poll_destroy(itm_polld);
@@ -218,7 +232,46 @@ int itm_startup(void)
 		itm_log(ITML_BASE, "service starting failed: poll event error %d", retval);
 		return -60 + retval;
 	}
-	itm_mask(&itmd_dgram, APOLL_IN, 0);
+	
+	itm_mask(&itmd_dgram4, APOLL_IN, 0);
+
+#ifdef AF_INET
+	if (itm_outer_sock6 >= 0) {
+		retval = apr_poll_add(itm_polld, itm_outer_sock6, APOLL_IN, &itmd_outer6);
+		if (retval) {
+			itm_socket_release();
+			apr_poll_destroy(itm_polld);
+			itm_polld = NULL;
+			itm_log(ITML_BASE, "service starting failed: poll event error %d", retval);
+			return -70 + retval;
+		}
+	}
+
+	if (itm_inner_sock6 >= 0) {
+		retval = apr_poll_add(itm_polld, itm_inner_sock6, APOLL_IN, &itmd_inner6);
+		if (retval) {
+			itm_socket_release();
+			apr_poll_destroy(itm_polld);
+			itm_polld = NULL;
+			itm_log(ITML_BASE, "service starting failed: poll event error %d", retval);
+			return -80 + retval;
+		}
+	}
+
+	if (itm_dgram_sock6 >= 0) {
+		retval = apr_poll_add(itm_polld, itm_dgram_sock6, 0, &itmd_dgram6);
+		if (retval) {
+			itm_socket_release();
+			apr_poll_destroy(itm_polld);
+			itm_polld = NULL;
+			itm_log(ITML_BASE, "service starting failed: poll event error %d", retval);
+			return -90 + retval;
+		}
+
+		itm_mask(&itmd_dgram6, APOLL_IN, 0);
+	}
+#endif
+
 	idt_init(&itm_timeu, itm_outer_time, NULL);
 	idt_init(&itm_timec, itm_inner_time, NULL);
 
@@ -228,7 +281,8 @@ int itm_startup(void)
 	itm_dsize(itm_datamax + 0x10000);
 	itm_wchannel(32000, NULL);
 
-	ims_init(&itm_dgramdat, &itm_mem);
+	ims_init(&itm_dgramdat4, &itm_mem);
+	ims_init(&itm_dgramdat6, &itm_mem);
 
 	itm_state = 0;
 	itm_outer_cnt = 0;
@@ -347,7 +401,8 @@ int itm_shutdown(void)
 	}
 	itm_logmask = s;
 	itm_socket_release();
-	ims_destroy(&itm_dgramdat);
+	ims_destroy(&itm_dgramdat4);
+	ims_destroy(&itm_dgramdat6);
 
 	apr_poll_destroy(itm_polld);
 	iv_destroy(&itm_hostv);
@@ -383,96 +438,261 @@ static int itm_socket_create(void)
 	unsigned long revalue1 = 1, revalue2 = 1, revalue3 = 1;
 	unsigned long buffer1 = 0;
 	unsigned long buffer2 = 0;
-	struct sockaddr_in host_outer;
-	struct sockaddr_in host_inner;
-	struct sockaddr_in host_dgram;
+	struct sockaddr_in host_outer4;
+	struct sockaddr_in host_inner4;
+	struct sockaddr_in host_dgram4;
+#ifdef AF_INET6
+	struct sockaddr_in6 host_outer6;
+	struct sockaddr_in6 host_inner6;
+	struct sockaddr_in6 host_dgram6;
+#endif
 
-	if (itm_outer_sock >= 0 || itm_inner_sock >= 0) 
-		itm_socket_release();
+	itm_socket_release();
 
-	itm_outer_sock = apr_socket(PF_INET, SOCK_STREAM, 0);
-	if (itm_outer_sock < 0) return -1;
-	itm_inner_sock = apr_socket(PF_INET, SOCK_STREAM, 0);
-	if (itm_inner_sock < 0) {
+	itm_outer_sock4 = apr_socket(PF_INET, SOCK_STREAM, 0);
+	if (itm_outer_sock4 < 0) return -1;
+	itm_inner_sock4 = apr_socket(PF_INET, SOCK_STREAM, 0);
+	if (itm_inner_sock4 < 0) {
 		itm_socket_release();
 		return -1;
 	}
-	itm_dgram_sock = apr_socket(PF_INET, SOCK_DGRAM, 0);
-	if (itm_dgram_sock < 0) {
+	itm_dgram_sock4 = apr_socket(PF_INET, SOCK_DGRAM, 0);
+	if (itm_dgram_sock4 < 0) {
 		itm_socket_release();
 		return -2;
 	}
 
-	memset(&host_outer, 0, sizeof(host_outer));
-	memset(&host_inner, 0, sizeof(host_inner));
-	memset(&host_dgram, 0, sizeof(host_dgram));
+	memset(&host_outer4, 0, sizeof(host_outer4));
+	memset(&host_inner4, 0, sizeof(host_inner4));
+	memset(&host_dgram4, 0, sizeof(host_dgram4));
 
 	// 配置套接字监听地址
-	host_outer.sin_addr.s_addr = 0;
-	host_inner.sin_addr.s_addr = itm_inner_addr;
-	host_dgram.sin_addr.s_addr = 0;
-	host_outer.sin_port = htons((short)itm_outer_port);
-	host_inner.sin_port = htons((short)itm_inner_port);
-	host_dgram.sin_port = htons((short)itm_dgram_port);
-	host_outer.sin_family = PF_INET;
-	host_inner.sin_family = PF_INET;
-	host_dgram.sin_family = PF_INET;
+	host_outer4.sin_addr.s_addr = 0;
+	host_inner4.sin_addr.s_addr = itm_inner_addr4;
+	host_dgram4.sin_addr.s_addr = 0;
+	host_outer4.sin_port = htons((short)itm_outer_port4);
+	host_inner4.sin_port = htons((short)itm_inner_port4);
+	host_dgram4.sin_port = htons((short)itm_dgram_port4);
+	host_outer4.sin_family = PF_INET;
+	host_inner4.sin_family = PF_INET;
+	host_dgram4.sin_family = PF_INET;
 
 	// 设置套接字参数
-	apr_ioctl(itm_outer_sock, FIONBIO, &noblock1);
-	apr_ioctl(itm_inner_sock, FIONBIO, &noblock2);
-	apr_ioctl(itm_dgram_sock, FIONBIO, &noblock3);
+	apr_ioctl(itm_outer_sock4, FIONBIO, &noblock1);
+	apr_ioctl(itm_inner_sock4, FIONBIO, &noblock2);
+	apr_ioctl(itm_dgram_sock4, FIONBIO, &noblock3);
 	
 	// 如果不禁止地址复用
 	if (itm_noreuse == 0) {
-		apr_setsockopt(itm_outer_sock, SOL_SOCKET, SO_REUSEADDR, (char*)&revalue1, sizeof(revalue1));
-		apr_setsockopt(itm_inner_sock, SOL_SOCKET, SO_REUSEADDR, (char*)&revalue2, sizeof(revalue2));
-		apr_setsockopt(itm_dgram_sock, SOL_SOCKET, SO_REUSEADDR, (char*)&revalue3, sizeof(revalue3));
+		apr_setsockopt(itm_outer_sock4, SOL_SOCKET, SO_REUSEADDR, (char*)&revalue1, sizeof(revalue1));
+		apr_setsockopt(itm_inner_sock4, SOL_SOCKET, SO_REUSEADDR, (char*)&revalue2, sizeof(revalue2));
+		apr_setsockopt(itm_dgram_sock4, SOL_SOCKET, SO_REUSEADDR, (char*)&revalue3, sizeof(revalue3));
 	}
 
 	buffer1 = itm_dgram_blimit;
 	buffer2 = itm_dgram_blimit;
 
 	if (itm_dgram_blimit > 0) {
-		apr_setsockopt(itm_dgram_sock, SOL_SOCKET, SO_RCVBUF, (char*)&buffer1, sizeof(buffer1));
-		apr_setsockopt(itm_dgram_sock, SOL_SOCKET, SO_SNDBUF, (char*)&buffer2, sizeof(buffer2));
+		apr_setsockopt(itm_dgram_sock4, SOL_SOCKET, SO_RCVBUF, (char*)&buffer1, sizeof(buffer1));
+		apr_setsockopt(itm_dgram_sock4, SOL_SOCKET, SO_SNDBUF, (char*)&buffer2, sizeof(buffer2));
 	}
 
 	// 绑定本地套接字
-	if (apr_bind(itm_outer_sock, (struct sockaddr*)&host_outer, 0) ||
-		apr_bind(itm_inner_sock, (struct sockaddr*)&host_inner, 0) ||
-		apr_bind(itm_dgram_sock, (struct sockaddr*)&host_dgram, 0)) {
+	if (apr_bind(itm_outer_sock4, (struct sockaddr*)&host_outer4, 0) ||
+		apr_bind(itm_inner_sock4, (struct sockaddr*)&host_inner4, 0) ||
+		apr_bind(itm_dgram_sock4, (struct sockaddr*)&host_dgram4, 0)) {
 		itm_socket_release();
 		return -3;
 	}
 
 	// 初始化 WIN32的 RESET修复
-	if (apr_win32_init(itm_dgram_sock))
+	if (apr_win32_init(itm_dgram_sock4)) {
+		itm_socket_release();
 		return -4;
+	}
 
 	// 数据流监听开始
-	if (apr_listen(itm_outer_sock, itm_backlog) || 
-		apr_listen(itm_inner_sock, itm_backlog)) {
+	if (apr_listen(itm_outer_sock4, itm_backlog) || 
+		apr_listen(itm_inner_sock4, itm_backlog)) {
 		itm_socket_release();
 		return -5;
 	}
 
-	apr_sockname(itm_outer_sock, (struct sockaddr*)&host_outer, NULL);
-	apr_sockname(itm_inner_sock, (struct sockaddr*)&host_inner, NULL);
-	apr_sockname(itm_dgram_sock, (struct sockaddr*)&host_dgram, NULL);
+	apr_sockname(itm_outer_sock4, (struct sockaddr*)&host_outer4, NULL);
+	apr_sockname(itm_inner_sock4, (struct sockaddr*)&host_inner4, NULL);
+	apr_sockname(itm_dgram_sock4, (struct sockaddr*)&host_dgram4, NULL);
 
-	itm_outer_port = htons(host_outer.sin_port);
-	itm_inner_port = htons(host_inner.sin_port);
-	itm_dgram_port = htons(host_dgram.sin_port);
+	itm_outer_port4 = htons(host_outer4.sin_port);
+	itm_inner_port4 = htons(host_inner4.sin_port);
+	itm_dgram_port4 = htons(host_dgram4.sin_port);
 
-	itmd_outer.fd = itm_outer_sock;
-	itmd_inner.fd = itm_inner_sock;
-	itmd_dgram.fd = itm_dgram_sock;
+	itmd_outer4.fd = itm_outer_sock4;
+	itmd_inner4.fd = itm_inner_sock4;
+	itmd_dgram4.fd = itm_dgram_sock4;
 
-	itmd_outer.mode = ITMD_OUTER_HOST;
-	itmd_inner.mode = ITMD_INNER_HOST;
-	itmd_dgram.mode = ITMD_DGRAM_HOST;
-	itmd_dgram.mask = 0;
+	itmd_outer4.mode = ITMD_OUTER_HOST4;
+	itmd_inner4.mode = ITMD_INNER_HOST4;
+	itmd_dgram4.mode = ITMD_DGRAM_HOST4;
+	itmd_dgram4.mask = 0;
+
+#ifdef AF_INET6
+	memset(&host_outer6, 0, sizeof(host_outer6));
+	memset(&host_inner6, 0, sizeof(host_inner6));
+	memset(&host_dgram6, 0, sizeof(host_dgram6));
+
+	// 配置套接字监听地址
+	memcpy(&host_inner6.sin6_addr.s6_addr, itm_inner_addr6, 16);
+	host_outer6.sin6_port = htons((short)itm_outer_port6);
+	host_inner6.sin6_port = htons((short)itm_inner_port6);
+	host_dgram6.sin6_port = htons((short)itm_dgram_port6);
+	host_outer6.sin6_family = AF_INET6;
+	host_inner6.sin6_family = AF_INET6;
+	host_dgram6.sin6_family = AF_INET6;
+
+	// 如果 IPv6外部端口允许
+	if (itm_outer_port6 >= 0) {
+		unsigned long noblock4 = 1;
+		unsigned long revalue4 = 1;
+		unsigned long enable4 = 1;
+		int size4 = sizeof(struct sockaddr_in6);
+
+		itm_outer_sock6 = apr_socket(AF_INET6, SOCK_STREAM, 0);
+
+		if (itm_outer_sock6 < 0) {
+			itm_socket_release();
+			return -10;
+		}
+
+	#if defined(IPPROTO_IPV6) && defined(IPV6_V6ONLY)
+		apr_setsockopt(itm_outer_sock6, IPPROTO_IPV6, IPV6_V6ONLY,
+			(const char*)&enable4, sizeof(enable4));
+	#endif
+
+		apr_ioctl(itm_outer_sock6, FIONBIO, &noblock4);
+
+		if (itm_noreuse == 0) {
+			apr_setsockopt(itm_outer_sock6, SOL_SOCKET, SO_REUSEADDR, 
+				(char*)&revalue4, sizeof(revalue4));
+		}
+
+		if (apr_bind(itm_outer_sock6, (struct sockaddr*)&host_outer6, 
+			sizeof(host_outer6))) {
+			itm_socket_release();
+			return -12;
+		}
+
+		if (apr_listen(itm_outer_sock6, itm_backlog)) {
+			itm_socket_release();
+			return -13;
+		}
+
+		apr_sockname(itm_outer_sock6, (struct sockaddr*)&host_outer6, &size4);
+		itm_outer_port6 = htons(host_outer6.sin6_port);
+	}
+
+	// 如果 IPv6内部端口允许
+	if (itm_inner_port6 >= 0) {
+		unsigned long noblock5 = 1;
+		unsigned long revalue5 = 1;
+		unsigned long enable5 = 1;
+		int size5 = sizeof(struct sockaddr_in6);
+
+		itm_inner_sock6 = apr_socket(AF_INET6, SOCK_STREAM, 0);
+
+		if (itm_inner_sock6 < 0) {
+			itm_socket_release();
+			return -14;
+		}
+
+	#if defined(IPPROTO_IPV6) && defined(IPV6_V6ONLY)
+		apr_setsockopt(itm_inner_sock6, IPPROTO_IPV6, IPV6_V6ONLY,
+			(const char*)&enable5, sizeof(enable5));
+	#endif
+
+		apr_ioctl(itm_inner_sock6, FIONBIO, &noblock5);
+
+		if (itm_noreuse == 0) {
+			apr_setsockopt(itm_inner_sock6, SOL_SOCKET, SO_REUSEADDR, 
+				(char*)&revalue5, sizeof(revalue5));
+		}
+
+		if (apr_bind(itm_inner_sock6, (struct sockaddr*)&host_inner6, 
+			sizeof(host_inner6))) {
+			itm_socket_release();
+			return -15;
+		}
+
+		if (apr_listen(itm_inner_sock6, itm_backlog)) {
+			itm_socket_release();
+			return -16;
+		}
+
+		apr_sockname(itm_inner_sock6, (struct sockaddr*)&host_inner6, &size5);
+		itm_inner_port6 = htons(host_inner6.sin6_port);
+	}
+
+	// 如果 IPv6数据报端口允许
+	if (itm_dgram_port6 >= 0) {
+		unsigned long noblock6 = 1;
+		unsigned long revalue6 = 1;
+		unsigned long enable6 = 1;
+		int size6 = sizeof(struct sockaddr_in6);
+
+		itm_dgram_sock6 = apr_socket(AF_INET6, SOCK_DGRAM, 0);
+
+		if (itm_dgram_sock6 < 0) {
+			itm_socket_release();
+			return -17;
+		}
+
+	#if defined(IPPROTO_IPV6) && defined(IPV6_V6ONLY)
+		apr_setsockopt(itm_dgram_sock6, IPPROTO_IPV6, IPV6_V6ONLY,
+			(const char*)&enable6, sizeof(enable6));
+	#endif
+
+		apr_ioctl(itm_dgram_sock6, FIONBIO, &noblock6);
+
+		if (itm_noreuse == 0) {
+			apr_setsockopt(itm_dgram_sock6, SOL_SOCKET, SO_REUSEADDR, 
+				(char*)&revalue6, sizeof(revalue6));
+		}
+
+		buffer1 = itm_dgram_blimit;
+		buffer2 = itm_dgram_blimit;
+
+		if (itm_dgram_blimit > 0) {
+			apr_setsockopt(itm_dgram_sock6, SOL_SOCKET, SO_RCVBUF, 
+				(char*)&buffer1, sizeof(buffer1));
+			apr_setsockopt(itm_dgram_sock6, SOL_SOCKET, SO_SNDBUF,
+				(char*)&buffer2, sizeof(buffer2));
+		}
+
+		if (apr_bind(itm_dgram_sock6, (struct sockaddr*)&host_dgram6, 
+			sizeof(host_dgram6))) {
+			itm_socket_release();
+			return -18;
+		}
+
+		// 初始化 WIN32的 RESET修复
+		if (apr_win32_init(itm_dgram_sock6)) {
+			itm_socket_release();
+			return -19;
+		}
+
+		apr_sockname(itm_dgram_sock6, (struct sockaddr*)&host_dgram6, &size6);
+		itm_dgram_port6 = htons(host_dgram6.sin6_port);
+	}
+
+	itmd_outer6.fd = itm_outer_sock6;
+	itmd_inner6.fd = itm_inner_sock6;
+	itmd_dgram6.fd = itm_dgram_sock6;
+
+	itmd_outer6.mode = ITMD_OUTER_HOST6;
+	itmd_inner6.mode = ITMD_INNER_HOST6;
+	itmd_dgram6.mode = ITMD_DGRAM_HOST6;
+	itmd_dgram6.mask = 0;
+
+#endif
 
 	#ifdef __unix
 	signal(SIGPIPE, SIG_IGN);
@@ -486,12 +706,20 @@ static int itm_socket_create(void)
 //---------------------------------------------------------------------
 static int itm_socket_release(void)
 {
-	if (itm_outer_sock >= 0) apr_close(itm_outer_sock);
-	if (itm_inner_sock >= 0) apr_close(itm_inner_sock);
-	if (itm_dgram_sock >= 0) apr_close(itm_dgram_sock);
-	itm_outer_sock = -1;
-	itm_inner_sock = -1;
-	itm_dgram_sock = -1;
+	if (itm_outer_sock4 >= 0) apr_close(itm_outer_sock4);
+	if (itm_inner_sock4 >= 0) apr_close(itm_inner_sock4);
+	if (itm_dgram_sock4 >= 0) apr_close(itm_dgram_sock4);
+	itm_outer_sock4 = -1;
+	itm_inner_sock4 = -1;
+	itm_dgram_sock4 = -1;
+
+	if (itm_outer_sock6 >= 0) apr_close(itm_outer_sock6);
+	if (itm_inner_sock6 >= 0) apr_close(itm_inner_sock6);
+	if (itm_dgram_sock6 >= 0) apr_close(itm_dgram_sock6);
+	itm_outer_sock6 = -1;
+	itm_inner_sock6 = -1;
+	itm_dgram_sock6 = -1;
+
 	return 0;
 }
 
@@ -574,12 +802,20 @@ int itm_process(long timeval)
 		if (event & (APOLL_IN | APOLL_ERR)) {	
 			switch (itmd->mode)
 			{
-			case ITMD_OUTER_HOST:
-				itm_event_accept(ITMD_OUTER_HOST);
+			case ITMD_OUTER_HOST4:
+				itm_event_accept(ITMD_OUTER_HOST4);
 				break;
 
-			case ITMD_INNER_HOST:
-				itm_event_accept(ITMD_INNER_HOST);
+			case ITMD_INNER_HOST4:
+				itm_event_accept(ITMD_INNER_HOST4);
+				break;
+			
+			case ITMD_OUTER_HOST6:
+				itm_event_accept(ITMD_OUTER_HOST6);
+				break;
+			
+			case ITMD_INNER_HOST6:
+				itm_event_accept(ITMD_INNER_HOST6);
 				break;
 
 			case ITMD_OUTER_CLIENT:
@@ -602,8 +838,14 @@ int itm_process(long timeval)
 				}
 				break;
 
-			case ITMD_DGRAM_HOST:
-				itm_event_dgram();
+			case ITMD_DGRAM_HOST4:
+				itm_event_dgram(AF_INET);
+				break;
+			
+			case ITMD_DGRAM_HOST6:
+			#ifdef AF_INET6
+				itm_event_dgram(AF_INET6);
+			#endif
 				break;
 			}
 		}
@@ -808,7 +1050,7 @@ long itm_tryrecv(struct ITMD *itmd)
 //---------------------------------------------------------------------
 // itm_trysendto
 //---------------------------------------------------------------------
-long itm_trysendto(void)
+long itm_trysendto(int af)
 {
 	struct ITMHUDP *head;
 	struct sockaddr*remote;
@@ -816,18 +1058,38 @@ long itm_trysendto(void)
 	unsigned short xsize;
 	long total = 0;
 
+#ifdef AF_INET6
+	if (af == AF_INET6) {
+		for (xsize = 1; xsize > 0; ) {
+			if (itm_dgramdat6.size < 2) break;
+			ims_peek(&itm_dgramdat6, &dsize, 2);
+			ims_peek(&itm_dgramdat6, itm_zdata, dsize);
+
+			remote = (struct sockaddr*)(itm_zdata + 2);
+			head = (struct ITMHUDP*)(itm_zdata + ITM_ADDRSIZE6 + 2);
+			xsize = dsize - ITM_ADDRSIZE6 - 2;
+			xsize = apr_sendto(itm_dgram_sock6, (char*)head, xsize, 0, remote, ITM_ADDRSIZE6);
+			if (xsize > 0) {
+				ims_drop(&itm_dgramdat6, dsize);
+				total += xsize;
+			}
+		}
+		return total;
+	}
+#endif
+
 	for (xsize = 1; xsize > 0; ) {
-		if (itm_dgramdat.size < 2) break;
-		ims_peek(&itm_dgramdat, &dsize, 2);
-		ims_peek(&itm_dgramdat, itm_zdata, dsize);
+		if (itm_dgramdat4.size < 2) break;
+		ims_peek(&itm_dgramdat4, &dsize, 2);
+		ims_peek(&itm_dgramdat4, itm_zdata, dsize);
 
 		remote = (struct sockaddr*)(itm_zdata + 2);
-		head = (struct ITMHUDP*)(itm_zdata + ITM_ADDRSIZE + 2);
-		xsize = dsize - ITM_ADDRSIZE - 2;
-		xsize = sendto(itm_dgram_sock, (char*)head, xsize, 0, remote, ITM_ADDRSIZE);
+		head = (struct ITMHUDP*)(itm_zdata + ITM_ADDRSIZE4 + 2);
+		xsize = dsize - ITM_ADDRSIZE4 - 2;
+		xsize = sendto(itm_dgram_sock4, (char*)head, xsize, 0, remote, ITM_ADDRSIZE4);
 
 		if (xsize > 0) {
-			ims_drop(&itm_dgramdat, dsize);
+			ims_drop(&itm_dgramdat4, dsize);
 			total += xsize;
 		}
 	}
@@ -877,7 +1139,7 @@ long itm_dsize(long length)
 //---------------------------------------------------------------------
 // itm_epname
 //---------------------------------------------------------------------
-char *itm_epname(const struct sockaddr *ep)
+char *itm_epname4(const struct sockaddr *ep)
 {
 	static char text[1024];
 	struct sockaddr_in *addr = NULL;
@@ -892,11 +1154,61 @@ char *itm_epname(const struct sockaddr *ep)
 }
 
 //---------------------------------------------------------------------
+// itm_epname
+//---------------------------------------------------------------------
+char *itm_epname6(const struct sockaddr *ep)
+{
+	static char text[1024] = "(null)";
+#ifdef AF_INET6
+	struct sockaddr_in6 *addr = NULL;
+	static char desc[1024] = "";
+	int port;
+	addr = (struct sockaddr_in6*)ep;
+	apr_ntop(AF_INET6, &addr->sin6_addr.s6_addr, desc, 1024);
+	port = (int)(htons(addr->sin6_port));
+	sprintf(text, "%s:%d", desc, port);
+#endif
+	return text;
+}
+
+
+//---------------------------------------------------------------------
+// itm_epname
+//---------------------------------------------------------------------
+char *itm_epname(const struct ITMD *itmd)
+{
+	if (itmd->IsIPv6 == 0) {
+		return itm_epname4((const struct sockaddr*)&itmd->remote4);
+	}	else {
+	#ifdef AF_INET6
+		return itm_epname6((const struct sockaddr*)&itmd->remote6);
+	#else
+		static char text[64] = "(unknow ipv6 addr)";
+		return text;
+	#endif
+	}
+}
+
+
+//---------------------------------------------------------------------
+// itm_ntop
+//---------------------------------------------------------------------
+char *itm_ntop(int af, const struct sockaddr *remote)
+{
+#ifdef AF_INET6
+	if (af == AF_INET6) 
+		return itm_epname6(remote);
+#endif
+	return itm_epname4(remote);
+}
+
+
+//---------------------------------------------------------------------
 // itm_dataok
 //---------------------------------------------------------------------
 int itm_mask(struct ITMD *itmd, int enable, int disable)
 {
-	if (itmd == NULL) itmd = &itmd_dgram;
+	if (itmd == NULL) return -1;
 	if (disable & ITM_READ) itmd->mask &= ~(APOLL_IN);
 	if (disable & ITM_WRITE) itmd->mask &= ~(APOLL_OUT);
 	if (enable & ITM_READ) itmd->mask |= APOLL_IN;
@@ -932,30 +1244,54 @@ int itm_send(struct ITMD *itmd, const void *data, long length)
 //---------------------------------------------------------------------
 // itm_sendudp
 //---------------------------------------------------------------------
-int itm_sendudp(struct sockaddr *remote, struct ITMHUDP *head, const void *data, long size)
+int itm_sendudp(int af, struct sockaddr *remote, struct ITMHUDP *head, const void *data, long size)
 {
-	unsigned dsize = (unsigned short)size + ITM_ADDRSIZE + 2;
+	unsigned dsize = (unsigned short)size + ITM_ADDRSIZE4 + 2;
 	char headnew[16];
+
+#ifdef AF_INET6
+	if (af == AF_INET6) {
+		dsize = (unsigned short)size + ITM_ADDRSIZE6 + 2;
+		if (head != NULL) dsize = dsize + 16;
+
+		ims_write(&itm_dgramdat6, &dsize, 2);
+		ims_write(&itm_dgramdat6, remote, ITM_ADDRSIZE6);
+
+		if (head != NULL) {
+			iencode32u_lsb(headnew +  0, head->order);
+			iencode32u_lsb(headnew +  4, head->index);
+			iencode32u_lsb(headnew +  8, (apr_uint32)head->hid);
+			iencode32u_lsb(headnew + 12, (apr_uint32)head->session);
+			ims_write(&itm_dgramdat6, headnew, 16);
+		}
+
+		ims_write(&itm_dgramdat6, data, size);
+
+		if ((itmd_dgram6.mask & APOLL_OUT) == 0) itm_mask(&itmd_dgram6, ITM_WRITE, 0); 
+		return 0;
+	}
+#endif
 
 	if (head != NULL) dsize = dsize + 16;
 
-	ims_write(&itm_dgramdat, &dsize, 2);
-	ims_write(&itm_dgramdat, remote, ITM_ADDRSIZE);
+	ims_write(&itm_dgramdat4, &dsize, 2);
+	ims_write(&itm_dgramdat4, remote, ITM_ADDRSIZE4);
 
 	if (head != NULL) {
 		iencode32u_lsb(headnew +  0, head->order);
 		iencode32u_lsb(headnew +  4, head->index);
 		iencode32u_lsb(headnew +  8, (apr_uint32)head->hid);
 		iencode32u_lsb(headnew + 12, (apr_uint32)head->session);
-		ims_write(&itm_dgramdat, headnew, 16);
+		ims_write(&itm_dgramdat4, headnew, 16);
 	}
 
-	ims_write(&itm_dgramdat, data, size);
+	ims_write(&itm_dgramdat4, data, size);
 
-	if ((itmd_dgram.mask & APOLL_OUT) == 0) itm_mask(&itmd_dgram, ITM_WRITE, 0); 
+	if ((itmd_dgram4.mask & APOLL_OUT) == 0) itm_mask(&itmd_dgram4, ITM_WRITE, 0); 
 
 	return 0;
 }
+
 
 //---------------------------------------------------------------------
 // itm_sendto
@@ -963,7 +1299,6 @@ int itm_sendudp(struct sockaddr *remote, struct ITMHUDP *head, const void *data,
 int itm_sendto(struct ITMD *itmd, const void *data, long length)
 {
 	struct ITMHUDP head;
-	unsigned short dsize;
 
 	assert(itmd);
 	assert(itmd->mode == ITMD_OUTER_CLIENT);
@@ -974,9 +1309,16 @@ int itm_sendto(struct ITMD *itmd, const void *data, long length)
 	head.session = itmd->session;
 
 	itmd->cnt_udpw = (itmd->cnt_udpw + 1) & 0x7fffffff;
-	dsize = (unsigned short)length + 16 + ITM_ADDRSIZE + 2;
 
-	itm_sendudp(&(itmd->dgramp), &head, data, length);
+	if (itmd->IsIPv6 == 0) {
+		itm_sendudp(AF_INET, (struct sockaddr*)&(itmd->dgramp4),
+			&head, data, length);
+	}	else {
+	#ifdef AF_INET6
+		itm_sendudp(AF_INET6, (struct sockaddr*)&(itmd->dgramp6), 
+			&head, data, length);
+	#endif
+	}
 
 	return 0;
 }

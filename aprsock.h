@@ -115,6 +115,10 @@ typedef int socklen_t;
 #define _WIN32
 #endif
 
+#ifdef AF_INET6
+#include <ws2tcpip.h>
+#endif
+
 typedef int socklen_t;
 typedef SOCKET Socket;
 
@@ -267,6 +271,7 @@ typedef SOCKET Socket;
 #endif
 
 
+
 //---------------------------------------------------------------------
 // 全局相关宏定义
 //---------------------------------------------------------------------
@@ -288,7 +293,7 @@ extern "C" {
 #endif
 
 // 开始网络
-int apr_netstart(int v);
+int apr_netstart(void);
 
 // 结束网络
 int apr_netclose(void);
@@ -368,6 +373,20 @@ int apr_win32_init(int sock);
 
 // 将错误码转换成对应字符串
 char *apr_errstr(int errnum, char *msg, int size);
+
+
+//---------------------------------------------------------------------
+// IPV4/IPV6 地址帮助
+//---------------------------------------------------------------------
+
+// 转换表示格式到网络格式 
+// 返回 0表示成功，支持 AF_INET/AF_INET6 
+int apr_pton(int af, const char *src, void *dst);
+
+// 转换网络格式到表示格式 
+// 支持 AF_INET/AF_INET6 
+const char *apr_ntop(int af, const void *src, char *dst, size_t size);
+
 
 
 #ifdef __cplusplus
