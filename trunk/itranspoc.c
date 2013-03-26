@@ -1626,8 +1626,8 @@ int itm_on_broadcast(struct ITMD *itmd, long wparam, long lparam, long length)
 
 	if (itm_logmask & ITML_CHANNEL) {
 		itm_log(ITML_CHANNEL,
-			"broadcast from channel %d: count=%ld success=%ld discard=%ld",
-			itmd->channel, count, success, discard);
+			"broadcast from channel %d: count=%ld success=%ld discard=%ld limit=%lx",
+			itmd->channel, count, success, discard, lparam);
 	}
 
 	return 0;
