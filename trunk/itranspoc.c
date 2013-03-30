@@ -525,8 +525,9 @@ int itm_event_recv(struct ITMD *itmd)
 		length = itm_dataok(itmd);
 		if (length == 0) break;		// 没有就返回
 		if (length < 0) { 
-			itm_log(ITML_INFO, "connection data error hid=%XH channel=%d from %s", 
-				itmd->hid, itmd->channel, itm_epname(itmd));
+			const char *msg = (length == -1)? "error" : "invalid";
+			itm_log(ITML_INFO, "data size %s hid=%XH channel=%d from %s", 
+				msg, itmd->hid, itmd->channel, itm_epname(itmd));
 			itm_event_close(itmd, 2001); 
 			break; 
 		}
@@ -536,7 +537,6 @@ int itm_event_recv(struct ITMD *itmd)
 			itm_event_close(itmd, 2002);
 			break;
 		}
-
 		if (itmd->mode == ITMD_INNER_CLIENT) {
 			ims_read(&itmd->rstream, itm_data, length);
 			retval = itm_data_inner(itmd);
