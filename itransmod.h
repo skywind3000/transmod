@@ -801,6 +801,7 @@ static inline long itm_dataok(struct ITMD *itmd)
 	len = (long)(itm_size_get(ptr));
 
 	if (len < itm_hdrsize) return -1;
+	if (len > itm_datamax) return -2;
 	if (stream->size < len) return 0;
 
 	return len;
