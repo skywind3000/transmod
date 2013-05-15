@@ -186,6 +186,12 @@ APR_MODULE(int) ctm_config(int item, long value, const char *text)
 		if (_ctm_status == CTM_STOPPED) itm_datamax = value; 
 		else return -1;
 		break;
+	
+	case CTMO_PSIZE:
+		if (value < 4096) value = 4096;
+		if (_ctm_status == CTM_STOPPED) itm_psize = value;
+		else return -1;
+		break;
 
 	case CTMO_LOGMK:	itm_logmask = value;		break;
 	case CTMO_UTIME:	itm_utiming = value;		break;
