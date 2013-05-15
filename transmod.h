@@ -97,6 +97,7 @@ APR_MODULE(long) ctm_errno(void);
 #define CTMO_DATMAX		40	// 最大数据
 #define CTMO_DHCPBASE	41	// 最低的分配
 #define CTMO_DHCPHIGH	42	// 最高的分配
+#define CTMO_PSIZE		43	// 页面大小默认4K
 
 #define CTMO_PLOGP		80	// 设置日志打印函数指针
 #define	CTMO_PENCP		81	// 设置加密函数指针
