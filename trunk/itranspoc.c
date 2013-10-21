@@ -174,7 +174,7 @@ int itm_event_accept(int hmode)
 	itmd->node = node;
 	itmd->fd = sock;
 	itmd->tag = -1;
-	itmd->mask = 0;
+	itmd->mask = APOLL_ERR;
 	itmd->hid = (((++itm_counter) & 0x7fff) << 16) | (node & 0xffff);
 	itmd->channel = ITMD_HOST_IS_OUTER(hmode)? 0 : -1;
 	itmd->timeid = -1;
@@ -213,7 +213,7 @@ int itm_event_accept(int hmode)
 		return 0;
 	}
 
-	retval = apr_poll_add(itm_polld, itmd->fd, APOLL_IN, itmd);
+	retval = apr_poll_add(itm_polld, itmd->fd, APOLL_IN | APOLL_ERR, itmd);
 
 	if (retval) {
 		itm_log(ITML_ERROR, "[ERROR] poll add fd %d error for %s", 
