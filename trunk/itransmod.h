@@ -46,7 +46,7 @@
 extern "C" {
 #endif
 
-#define ITMV_VERSION 0x260	// 传输模块版本号
+#define ITMV_VERSION 0x261	// 传输模块版本号
 
 //=====================================================================
 // Global Variables Definition
@@ -170,6 +170,7 @@ struct ITMD
 	long touched;				// 数据报连接是否捆绑
 	long dropped;				// 一共丢弃的数据包
 	long inwlist;				// 是否在发送列表中
+	long disable;				// 是否禁止
 	struct IVQNODE wnode;		// 等待队列中的节点
 	struct IVQUEUE waitq;		// 等待队列
 	struct IMSTREAM rstream;	// 读入流
@@ -415,6 +416,8 @@ void itm_lltoa(char *dst, apr_int64 x);
 #define ITMS_STATISTIC	15	// 统计信息
 #define ITMS_RC4SKEY	16	// 设置发送KEY (st, hid) key
 #define ITMS_RC4RKEY	17	// 设置接收KEY (st, hid) key
+#define ITMS_DISABLE	18	// 禁止接收该用户消息
+#define ITMS_ENABLE		19	// 允许接收该用户消息
 #define ITMS_NODELAY	1	// 连接控制：设置立即发送模式
 #define ITMS_NOPUSH		2	// 连接控制：设置数据流塞子
 #define ITMS_PRIORITY	3	// SO_PRIORITY

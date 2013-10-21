@@ -181,6 +181,7 @@ int itm_event_accept(int hmode)
 	itmd->initok = 0;
 	itmd->ccnum = 0;
 	itmd->inwlist = 0;
+	itmd->disable = 0;
 
 	#ifndef IDISABLE_RC4
 	itmd->rc4_send_x = -1;
@@ -1285,6 +1286,38 @@ int itm_on_syscd(struct ITMD *itmd, long wparam, long lparam, long length)
 	case ITMS_QUITD:
 		itm_log(ITML_INFO, "system info: channel %d asks to quit", itmd->channel);
 		retval = -10;
+		break;
+	
+	case ITMS_DISABLE:
+		{
+			struct ITMD *target = itm_hid_itmd(lparam);
+			if (target == NULL) {
+				itm_log(ITML_WARNING, "[WARNING] can not disable user hid=%XH channel=%d",
+					lparam, itmd->channel);
+				break;
+			}
+			if (target->disable == 0) {
+				itm_mask(target, 0, ITM_READ);
+				target->disable = 1;
+			}
+		}
+		break;
+	
+	case ITMS_ENABLE:
+		{
+			struct ITMD *target = itm_hid_itmd(lparam);
+			if (target == NULL) {
+				itm_log(ITML_WARNING, "[WARNING] can not enable user hid=%XH channel=%d",
+					lparam, itmd->channel);
+				break;
+			}
+			if (target->disable != 0) {
+				if (target->wnode.queue == NULL) {
+					itm_mask(target, ITM_READ, 0);
+				}
+				target->disable = 0;
+			}
+		}
 		break;
 
 	case ITMS_STATISTIC:

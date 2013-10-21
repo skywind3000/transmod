@@ -1367,7 +1367,9 @@ int itm_permitr(struct ITMD *itmd)
 	wnode = iv_headpop(&itmd->waitq);
 	if (wnode == NULL) return 0;
 	client = (struct ITMD*)wnode->udata;
-	itm_mask(client, ITM_READ, 0);
+	if (client->disable == 0) {
+		itm_mask(client, ITM_READ, 0);
+	}
 	if (itm_logmask & ITML_DATA) {
 		itm_log(ITML_DATA, "channel %d permit read hid=%XH channel=%d", 
 			itmd->channel, client->hid, client->channel);
