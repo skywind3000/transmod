@@ -180,7 +180,9 @@ APR_MODULE(int) ctm_config(int item, long value, const char *text)
 	case CTMO_LIMTU:	itm_outer_blimit = value;	break;
 	case CTMO_LIMTC:	itm_inner_blimit = value;	break;
 	case CTMO_ADDRC4: 	apr_pton(AF_INET, text, &itm_inner_addr4); break;
-	case CTMO_ADDRC6: 	apr_pton(AF_INET, text, itm_inner_addr6); break;
+#ifdef AF_INET6
+	case CTMO_ADDRC6: 	apr_pton(AF_INET6, text, itm_inner_addr6); break;
+#endif
 
 	case CTMO_DATMAX:
 		if (_ctm_status == CTM_STOPPED) itm_datamax = value; 
