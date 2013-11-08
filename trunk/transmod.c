@@ -385,3 +385,22 @@ APR_MODULE(void) ctm_get_stat(void *stat_send, void *stat_recv, void *stat_disca
 }
 
 
+// 取得环境信息
+APR_MODULE(long) ctm_get_environ(unsigned int *version, char *ptr, long maxsize)
+{
+	unsigned int ver = itm_version;
+	long size = itm_envsize;
+	if (maxsize > 0 && ptr) {
+		if (itm_environ) {
+			long need = (size < maxsize - 1)? size : maxsize - 1;
+			memcpy(ptr, itm_environ, need);
+			ptr[need] = 0;
+		}	else {
+			ptr[0] = 0;
+		}
+	}
+	if (version) version[0] = ver;
+	return size;
+}
+
+
