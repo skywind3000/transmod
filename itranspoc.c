@@ -1320,6 +1320,26 @@ int itm_on_syscd(struct ITMD *itmd, long wparam, long lparam, long length)
 		}
 		break;
 
+	case ITMS_SETENV: {
+			int size = (length >= itm_headlen)? (int)(length - itm_headlen) : 0;
+			itm_version++;
+			if (itm_environ && size <= itm_datamax) {
+				memcpy(itm_environ, itm_data + itm_headlen, size);
+				itm_environ[size] = 0;
+			}
+			itm_envsize = size;
+			itm_version++;
+		}
+		break;
+
+	case ITMS_GETENV: 
+		itm_param_set(0, itm_headlen + itm_envsize, ITMT_SYSCD, ITMS_GETENV, 0);
+		if (itm_environ) {
+			memcpy(itm_data + itm_headlen, itm_environ, itm_envsize);
+		}
+		itm_send(itmd, itm_data, itm_headlen + itm_envsize);
+		break;
+
 	case ITMS_STATISTIC:
 		{
 			char text1[32];
@@ -1339,7 +1359,7 @@ int itm_on_syscd(struct ITMD *itmd, long wparam, long lparam, long length)
 			#ifndef IDISABLE_RC4
 			struct ITMD *target = itm_hid_itmd(lparam);
 			unsigned char *key = (unsigned char*)itm_data + itm_headlen;
-			int keylen = (length >= itm_headlen)? length - itm_headlen : 0;
+			int keylen = (length >= itm_headlen)? (int)(length - itm_headlen) : 0;
 			if (target == NULL) {
 				itm_log(ITML_WARNING, "[WARNING] can not set rc4 key to hid=%XH channel=%d",
 					lparam, itmd->channel);

@@ -152,6 +152,11 @@ apr_int64 itm_stat_discard = 0;		// 统计：放弃了多少个数据包
 
 int itm_noreuse = 0;				// 禁止地址复用
 
+char *itm_environ = NULL;			// 环境变量
+long itm_envsize = 0;				// 环境长度
+unsigned int itm_version = 0;		// 环境版本
+
+
 // 内部监听绑定的 IPv6地址
 char itm_inner_addr6[32] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
@@ -299,6 +304,10 @@ int itm_startup(void)
 	itm_notice_cycle = -1;
 	itm_notice_count = 0;
 
+	itm_version = 0;
+	itm_envsize = 0;
+	itm_environ[0] = 0;
+
 	itm_wsize = 0;
 	
 	switch (itm_headmod)
@@ -400,10 +409,15 @@ int itm_shutdown(void)
 			if (itmd) { itm_event_close(itmd, 0); count++; }
 		}	else break;
 	}
+
 	itm_logmask = s;
 	itm_socket_release();
 	ims_destroy(&itm_dgramdat4);
 	ims_destroy(&itm_dgramdat6);
+
+	itm_environ = NULL;
+	itm_envsize = 0;
+	itm_version = 0;
 
 	apr_poll_destroy(itm_polld);
 	iv_destroy(&itm_hostv);
@@ -1124,12 +1138,13 @@ int itm_wchannel(int index, struct ITMD *itmd)
 long itm_dsize(long length)
 {
 	long size = length;
-	length <<= 1;
+	length = (size << 1) + size + 8192;
 	if (length >= (long)itm_datav.length) {
 		iv_resize(&itm_datav, length);
 		itm_data = (char*)itm_datav.data;
 	}
 	itm_crypt = itm_data + size;
+	itm_environ = itm_crypt + size;
 	return 0;
 }
 
