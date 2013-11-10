@@ -315,6 +315,10 @@ int itm_book_empty(void);						// 关注复位
 void itm_rc4_init(unsigned char *box, int *x, int *y, const unsigned char *key, int keylen);
 void itm_rc4_crypt(unsigned char *box, int *x, int *y, const unsigned char *src, unsigned char *dst, long size);
 
+// 外部事件
+long itm_msg_put(int id, const char *data, long size);
+long itm_msg_get(int id, char *data, long maxsize);
+
 
 //---------------------------------------------------------------------
 // 数据报操作
@@ -424,6 +428,7 @@ void itm_lltoa(char *dst, apr_int64 x);
 #define ITMS_ENABLE		19	// 允许接收该用户消息
 #define ITMS_SETENV		20	// 设置环境值
 #define ITMS_GETENV		21	// 取得环境值
+#define ITMS_MESSAGE	22	// 外部控制事件 
 #define ITMS_NODELAY	1	// 连接控制：设置立即发送模式
 #define ITMS_NOPUSH		2	// 连接控制：设置数据流塞子
 #define ITMS_PRIORITY	3	// SO_PRIORITY

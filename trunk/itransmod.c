@@ -156,6 +156,10 @@ char *itm_environ = NULL;			// 环境变量
 long itm_envsize = 0;				// 环境长度
 unsigned int itm_version = 0;		// 环境版本
 
+struct IMPOOL itm_msg_mem;			// 外部事件队列
+struct IMSTREAM itm_msg_n0;			// 外部事件数据
+struct IMSTREAM itm_msg_n1;			// 外部事件数据
+apr_mutex itm_msg_lock;				// 外部事件锁
 
 // 内部监听绑定的 IPv6地址
 char itm_inner_addr6[32] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -308,6 +312,11 @@ int itm_startup(void)
 	itm_envsize = 0;
 	itm_environ[0] = 0;
 
+	imp_init(&itm_msg_mem, 4096, NULL);
+	ims_init(&itm_msg_n0, &itm_msg_mem);
+	ims_init(&itm_msg_n1, &itm_msg_mem);
+	apr_mutex_init(&itm_msg_lock);
+
 	itm_wsize = 0;
 	
 	switch (itm_headmod)
@@ -436,6 +445,13 @@ int itm_shutdown(void)
 		itm_booklen[i] = 0;
 		iv_destroy(&itm_bookv[i]);
 	}
+
+	apr_mutex_lock(itm_msg_lock);
+	ims_destroy(&itm_msg_n0);
+	ims_destroy(&itm_msg_n1);
+	imp_destroy(&itm_msg_mem);
+	apr_mutex_unlock(itm_msg_lock);
+	apr_mutex_destroy(itm_msg_lock);
 
 	itm_mode = 0;
 
@@ -1584,6 +1600,65 @@ void itm_rc4_crypt(unsigned char *box, int *x, int *y,
 		x[0] = X;
 		y[0] = Y;
 	}
+}
+
+
+//---------------------------------------------------------------------
+// message - put
+//---------------------------------------------------------------------
+long itm_msg_put(int id, const char *data, long size)
+{
+	struct IMSTREAM *stream;
+	char head[8];
+	long hr = 0;
+	if (itm_mode == 0) return -1;
+	iencode32u_lsb(head, (apr_uint32)(size + 4));
+	if (size >= itm_datamax) return -1;
+	apr_mutex_lock(itm_msg_lock);
+	stream = (id == 0)? &itm_msg_n0 : &itm_msg_n1;
+	if (stream->size >= (itm_datamax << 2)) hr = -2;
+	else {
+		ims_write(stream, head, 4);
+		ims_write(stream, data, size);
+	}
+	apr_mutex_unlock(itm_msg_lock);
+	return hr;
+}
+
+
+//---------------------------------------------------------------------
+// message - get
+//---------------------------------------------------------------------
+long itm_msg_get(int id, char *data, long maxsize) 
+{
+	struct IMSTREAM *stream;
+	apr_uint32 size;
+	char head[8];
+	long hr = -1;
+	if (itm_mode == 0) return -1;
+	apr_mutex_lock(itm_msg_lock);
+	stream = (id == 0)? &itm_msg_n0 : &itm_msg_n1;
+	if (ims_peek(stream, head, 4) == 4) {
+		idecode32u_lsb(head, &size);
+		if (maxsize < 0) maxsize = 0;
+		if (stream->size >= (ilong)size) {
+			long length = (long)size - 4;
+			long need = (length > maxsize)? maxsize : length;
+			long drop = length - need;
+			ims_drop(stream, 4);
+			if (data) {
+				ims_read(stream, data, need);
+			}	else {
+				ims_drop(stream, need);
+			}
+			if (drop > 0) {
+				ims_drop(stream, drop);
+			}
+			hr = length;
+		}
+	}
+	apr_mutex_unlock(itm_msg_lock);
+	return hr;
 }
 
 
