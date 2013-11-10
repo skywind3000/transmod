@@ -152,14 +152,17 @@ apr_int64 itm_stat_discard = 0;		// 统计：放弃了多少个数据包
 
 int itm_noreuse = 0;				// 禁止地址复用
 
-char *itm_environ = NULL;			// 环境变量
-long itm_envsize = 0;				// 环境长度
-unsigned int itm_version = 0;		// 环境版本
+char *itm_document = NULL;			// 文档变量
+long itm_docsize = 0;				// 文档长度
+unsigned int itm_version = 0;		// 文档版本
 
 struct IMPOOL itm_msg_mem;			// 外部事件队列
 struct IMSTREAM itm_msg_n0;			// 外部事件数据
 struct IMSTREAM itm_msg_n1;			// 外部事件数据
-apr_mutex itm_msg_lock;				// 外部事件锁
+apr_mutex itm_msg_lock = NULL;		// 外部事件锁
+apr_uint32 itm_msg_cnt0 = 0;		// 外部事件计数器
+apr_uint32 itm_msg_cnt1 = 0;		// 外部事件计数器
+
 
 // 内部监听绑定的 IPv6地址
 char itm_inner_addr6[32] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -309,13 +312,15 @@ int itm_startup(void)
 	itm_notice_count = 0;
 
 	itm_version = 0;
-	itm_envsize = 0;
-	itm_environ[0] = 0;
+	itm_docsize = 0;
+	itm_document[0] = 0;
 
 	imp_init(&itm_msg_mem, 4096, NULL);
 	ims_init(&itm_msg_n0, &itm_msg_mem);
 	ims_init(&itm_msg_n1, &itm_msg_mem);
 	apr_mutex_init(&itm_msg_lock);
+	itm_msg_cnt0 = 0;
+	itm_msg_cnt1 = 0;
 
 	itm_wsize = 0;
 	
@@ -424,8 +429,8 @@ int itm_shutdown(void)
 	ims_destroy(&itm_dgramdat4);
 	ims_destroy(&itm_dgramdat6);
 
-	itm_environ = NULL;
-	itm_envsize = 0;
+	itm_document = NULL;
+	itm_docsize = 0;
 	itm_version = 0;
 
 	apr_poll_destroy(itm_polld);
@@ -911,8 +916,10 @@ int itm_timer(void)
 {
 	apr_int64 notice_time, v;
 	static long timesave = 0;
+	static apr_int64 ticksave = 0;
 	struct ITMD *itmd, *channel;
 	long current, hid;
+	apr_int64 ticknow;
 	int timeid, i, k;
 
 	// 处理频道时钟
@@ -921,7 +928,9 @@ int itm_timer(void)
 			itm_notice_slap += itm_notice_cycle;
 			itm_notice_count++;
 		}
-	}	else itm_notice_count = 0;
+	}	else {
+		itm_notice_count = 0;
+	}
 
 	itmd = itm_rchannel(0);
 	
@@ -949,6 +958,25 @@ int itm_timer(void)
 				}
 			}
 			itm_notice_count--;
+		}
+	}
+
+	// 计算十分之一秒的事件
+	ticknow = itm_time_current / 100;
+
+	// 如果没有到十分之一秒就退出
+	if (ticknow == ticksave) return 0;
+
+	// 查询是否有消息
+	while (itm_msg_cnt0 > 0) {
+		long hr;
+		hr = itm_msg_get(0, itm_data + itm_headlen, itm_datamax);
+		if (hr < 0) break;
+		if (itmd != NULL) {
+			itm_param_set(0, itm_headlen + hr, ITMT_SYSCD, ITMS_MESSAGE, 0);
+			if (itmd->wstream.size < itm_inner_blimit) {
+				itm_send(itmd, itm_data, itm_headlen + hr);
+			}
 		}
 	}
 
@@ -1160,7 +1188,7 @@ long itm_dsize(long length)
 		itm_data = (char*)itm_datav.data;
 	}
 	itm_crypt = itm_data + size;
-	itm_environ = itm_crypt + size;
+	itm_document = itm_crypt + size;
 	return 0;
 }
 
@@ -1620,6 +1648,11 @@ long itm_msg_put(int id, const char *data, long size)
 	else {
 		ims_write(stream, head, 4);
 		ims_write(stream, data, size);
+		if (id == 0) {
+			itm_msg_cnt0++;
+		}	else {
+			itm_msg_cnt1++;
+		}
 	}
 	apr_mutex_unlock(itm_msg_lock);
 	return hr;
@@ -1636,6 +1669,8 @@ long itm_msg_get(int id, char *data, long maxsize)
 	char head[8];
 	long hr = -1;
 	if (itm_mode == 0) return -1;
+	if (id == 0 && itm_msg_cnt0 == 0) return -1;
+	if (id != 0 && itm_msg_cnt1 == 0) return -1;
 	apr_mutex_lock(itm_msg_lock);
 	stream = (id == 0)? &itm_msg_n0 : &itm_msg_n1;
 	if (ims_peek(stream, head, 4) == 4) {
@@ -1655,6 +1690,11 @@ long itm_msg_get(int id, char *data, long maxsize)
 				ims_drop(stream, drop);
 			}
 			hr = length;
+			if (id == 0) {
+				itm_msg_cnt0--;
+			}	else {
+				itm_msg_cnt1--;
+			}
 		}
 	}
 	apr_mutex_unlock(itm_msg_lock);

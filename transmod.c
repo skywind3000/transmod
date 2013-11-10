@@ -386,14 +386,14 @@ APR_MODULE(void) ctm_get_stat(void *stat_send, void *stat_recv, void *stat_disca
 
 
 // 取得环境信息
-APR_MODULE(long) ctm_get_environ(unsigned int *version, char *ptr, long maxsize)
+APR_MODULE(long) ctm_get_document(unsigned int *version, char *ptr, long maxsize)
 {
 	unsigned int ver = itm_version;
-	long size = itm_envsize;
+	long size = itm_docsize;
 	if (maxsize > 0 && ptr) {
-		if (itm_environ) {
+		if (itm_document) {
 			long need = (size < maxsize - 1)? size : maxsize - 1;
-			memcpy(ptr, itm_environ, need);
+			memcpy(ptr, itm_document, need);
 			ptr[need] = 0;
 		}	else {
 			ptr[0] = 0;
@@ -410,7 +410,16 @@ APR_MODULE(long) ctm_get_environ(unsigned int *version, char *ptr, long maxsize)
 APR_MODULE(long) ctm_msg_get(void *msg, long maxsize)
 {
 	if (_ctm_status != CTM_RUNNING) return -1;
-	return itm_msg_get(0, msg, maxsize);
+	return itm_msg_get(1, msg, maxsize);
+}
+
+//---------------------------------------------------------------------
+// 外部事件接口
+//---------------------------------------------------------------------
+APR_MODULE(long) ctm_msg_put(const void *msg, long maxsize)
+{
+	if (_ctm_status != CTM_RUNNING) return -1;
+	return itm_msg_put(0, msg, maxsize);
 }
 
 
