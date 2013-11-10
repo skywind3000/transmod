@@ -1320,28 +1320,28 @@ int itm_on_syscd(struct ITMD *itmd, long wparam, long lparam, long length)
 		}
 		break;
 
-	case ITMS_SETENV: {
+	case ITMS_SETDOC: {
 			int size = (length >= itm_headlen)? (int)(length - itm_headlen) : 0;
 			itm_version++;
-			if (itm_environ && size <= itm_datamax) {
-				memcpy(itm_environ, itm_data + itm_headlen, size);
-				itm_environ[size] = 0;
+			if (itm_document && size <= itm_datamax) {
+				memcpy(itm_document, itm_data + itm_headlen, size);
+				itm_document[size] = 0;
 			}
-			itm_envsize = size;
+			itm_docsize = size;
 			itm_version++;
 		}
 		break;
 
-	case ITMS_GETENV: 
-		itm_param_set(0, itm_headlen + itm_envsize, ITMT_SYSCD, ITMS_GETENV, 0);
-		if (itm_environ) {
-			memcpy(itm_data + itm_headlen, itm_environ, itm_envsize);
+	case ITMS_GETDOC: 
+		itm_param_set(0, itm_headlen + itm_docsize, ITMT_SYSCD, ITMS_GETDOC, 0);
+		if (itm_document) {
+			memcpy(itm_data + itm_headlen, itm_document, itm_docsize);
 		}
-		itm_send(itmd, itm_data, itm_headlen + itm_envsize);
+		itm_send(itmd, itm_data, itm_headlen + itm_docsize);
 		break;
 
 	case ITMS_MESSAGE: 
-		itm_msg_put(0, itm_data + itm_headlen, (long)(length - itm_headlen));
+		itm_msg_put(1, itm_data + itm_headlen, (long)(length - itm_headlen));
 		break;
 
 	case ITMS_STATISTIC:

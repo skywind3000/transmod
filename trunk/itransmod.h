@@ -237,9 +237,9 @@ extern struct ITMD **itm_host;		// 内部Channel列表指针
 extern char *itm_data;				// 内部数据字节指针
 extern char *itm_crypt;				// 内部数据加密指针
 
-extern char *itm_environ;			// 环境变量
-extern long itm_envsize;			// 环境长度
-extern unsigned int itm_version;	// 环境版本
+extern char *itm_document;			// 文档变量
+extern long itm_docsize;			// 文档长度
+extern unsigned int itm_version;	// 文档版本
 
 extern struct ITMD itmd_inner4;		// IPv4 内部监听的ITMD(套接字描述)
 extern struct ITMD itmd_outer4;		// IPv4 外部监听的ITMD(套接字描述)
@@ -426,8 +426,8 @@ void itm_lltoa(char *dst, apr_int64 x);
 #define ITMS_RC4RKEY	17	// 设置接收KEY (st, hid) key
 #define ITMS_DISABLE	18	// 禁止接收该用户消息
 #define ITMS_ENABLE		19	// 允许接收该用户消息
-#define ITMS_SETENV		20	// 设置环境值
-#define ITMS_GETENV		21	// 取得环境值
+#define ITMS_SETDOC		20	// 文档设置
+#define ITMS_GETDOC		21	// 文档读取
 #define ITMS_MESSAGE	22	// 外部控制事件 
 #define ITMS_NODELAY	1	// 连接控制：设置立即发送模式
 #define ITMS_NOPUSH		2	// 连接控制：设置数据流塞子
