@@ -404,3 +404,13 @@ APR_MODULE(long) ctm_get_environ(unsigned int *version, char *ptr, long maxsize)
 }
 
 
+//---------------------------------------------------------------------
+// 外部事件接口
+//---------------------------------------------------------------------
+APR_MODULE(long) ctm_msg_get(void *msg, long maxsize)
+{
+	if (_ctm_status != CTM_RUNNING) return -1;
+	return itm_msg_get(0, msg, maxsize);
+}
+
+

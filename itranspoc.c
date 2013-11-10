@@ -1340,6 +1340,10 @@ int itm_on_syscd(struct ITMD *itmd, long wparam, long lparam, long length)
 		itm_send(itmd, itm_data, itm_headlen + itm_envsize);
 		break;
 
+	case ITMS_MESSAGE: 
+		itm_msg_put(0, itm_data + itm_headlen, (long)(length - itm_headlen));
+		break;
+
 	case ITMS_STATISTIC:
 		{
 			char text1[32];
