@@ -30,8 +30,14 @@
 #include <unistd.h>
 #include <netinet/in.h>
 
+#ifndef __AVM3__
 #include <poll.h>
 #include <netinet/tcp.h>
+#endif
+
+#if defined(__sun)
+#include <sys/filio.h>
+#endif
 
 #elif defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(WIN64)
 #if ((!defined(_M_PPC)) && (!defined(_M_PPC_BE)) && (!defined(_XBOX)))
