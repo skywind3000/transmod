@@ -1060,7 +1060,10 @@ long itm_trysend(struct ITMD *itmd)
 		if (len == 0) break;
 		ret = send(fd, (const char*)lptr, len, 0);
 		if (ret == 0) ret = -1;
-		else if (ret < 0) itm_error = aprerrno, ret = (itm_error == IEAGAIN)? 0 : -1;
+		else if (ret < 0) {
+			itm_error = aprerrno;
+			ret = (itm_error == IEAGAIN || itm_error == 0)? 0 : -1;
+		}
 		if (ret <= 0) break;
 		total += ret;
 		ims_drop(stream, ret);
@@ -1085,7 +1088,10 @@ long itm_tryrecv(struct ITMD *itmd)
 		itm_error = 0;
 		ret = recv(fd, itm_zdata, ITM_BUFSIZE, 0);
 		if (ret == 0) ret = -1;
-		else if (ret < 0) itm_error = aprerrno, ret = (itm_error == IEAGAIN)? 0 : -1;
+		else if (ret < 0) {
+			itm_error = aprerrno;
+			ret = (itm_error == IEAGAIN || itm_error == 0)? 0 : -1;
+		}
 		if (ret <= 0) break;
 		
 		#ifndef IDISABLE_RC4

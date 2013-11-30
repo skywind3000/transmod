@@ -126,7 +126,6 @@ static int apk_init_pd(apolld ipd, int param)
 	param = param;
 
 	if (apk_grow(ps, 4, 4)) {
-		apr_poll_fvdestroy(&ps->fv);
 		apk_destroy_pd(ipd);
 		return -3;
 	}
@@ -163,7 +162,7 @@ static int apk_grow(PSTRUCT *ps, int size_fd, int size_chg)
 		ps->max_fd = size_fd;
 		if (r) return -1;
 	}
-	if (size_chg>= 0) {
+	if (size_chg >= 0) {
 		r = iv_resize(&ps->vchange, size_chg * sizeof(struct kevent));
 		ps->mchange = (struct kevent*)ps->vchange.data;
 		ps->max_chg= size_chg;

@@ -231,7 +231,8 @@ static int aps_poll_wait(apolld ipd, int timeval)
 	ps->fdrtest = ps->fdr;
 	ps->fdwtest = ps->fdw;
 	ps->fdetest = ps->fde;
-	nbits = select(ps->max_fd + 1, &ps->fdrtest, &ps->fdwtest, &ps->fdetest, &timeout);
+	nbits = select(ps->max_fd + 1, &ps->fdrtest, &ps->fdwtest, 
+		&ps->fdetest, (timeval < 0)? NULL : &timeout);
 	if (nbits < 0) return -1;
 
 	ps->cur_fd = ps->min_fd - 1;
