@@ -11,6 +11,10 @@ if [ "$UNAME" = "Darwin" ] ; then
 	FLAG1="-Wall -g -fPIC -O3"
 	FLAG2="-dynamiclib"
 fi
+if [ "$UNAME" = "SunOS" ] ; then
+	FLAG1="-Wall -g -Wall -fpic -O3"
+	FLAG2="-lsocket -lnsl"
+fi
 
 mkdir -p ../../tmp
 cd ../../tmp

@@ -17,6 +17,7 @@
 // Dec. 23 2011   skywind  new: rc4 crypt (v2.43)
 // Dec. 28 2011   skywind  rc4 enchance (v2.44)
 // Mar. 03 2012   skywind  raw data header (v2.45)
+// Dec. 01 2013   skywind  solaris /dev/poll supported (v2.64)
 //
 // NOTES： 
 // 网络传输库 TML<传输模块>，建立 客户/频道的通信模式，提供基于多频道
@@ -46,7 +47,7 @@
 extern "C" {
 #endif
 
-#define ITMV_VERSION 0x263	// 传输模块版本号
+#define ITMV_VERSION 0x264	// 传输模块版本号
 
 //=====================================================================
 // Global Variables Definition

@@ -118,7 +118,12 @@ static int ape_init_pd(apolld ipd, int param)
 	ps->num_fd = 0;
 	ps->usr_len = 0;
 	
-	if (iv_resize(&ps->vresult, 4 * sizeof(struct epoll_event))) return -2;
+	if (iv_resize(&ps->vresult, 4 * sizeof(struct epoll_event))) {
+		close(ps->epfd);
+		ps->epfd = -1;
+		return -2;
+	}
+
 	ps->mresult = (struct epoll_event*)ps->vresult.data;
 	ps->max_fd = 4;
 
@@ -201,7 +206,7 @@ static int ape_poll_del(apolld ipd, int fd)
 	struct epoll_event ee;
 
 	if (ps->num_fd <= 0) return -1;
-	if (ps->fv.fds[fd].fd <  0) return -2;
+	if (ps->fv.fds[fd].fd < 0) return -2;
 
 	ee.events = 0;
 	ee.data.fd = fd;

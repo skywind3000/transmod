@@ -39,8 +39,8 @@
 #if defined(_WIN32)
 //#define APHAVE_WINCP
 #endif
-#if defined(sun)
-//#define APHAVE_DEVPOLL
+#if defined(sun) || defined(__sun) || defined(__sun__)
+#define APHAVE_DEVPOLL
 #endif
 
 #ifdef __cplusplus
