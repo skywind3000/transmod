@@ -182,9 +182,9 @@ static int ape_poll_add(apolld ipd, int fd, int mask, void *user)
 	ee.events = 0;
 	ee.data.fd = fd;
 
-	if (mask & APOLL_IN) ee.events |= EPOLLIN | EPOLLERR | EPOLLHUP;
-	if (mask & APOLL_OUT) ee.events |= EPOLLOUT | EPOLLERR;
-	if (mask & APOLL_ERR) ee.events |= EPOLLERR;
+	if (mask & APOLL_IN) ee.events |= EPOLLIN;
+	if (mask & APOLL_OUT) ee.events |= EPOLLOUT;
+	if (mask & APOLL_ERR) ee.events |= EPOLLERR | EPOLLHUP;
 
 	if (epoll_ctl(ps->epfd, EPOLL_CTL_ADD, fd, &ee)) {
 		ps->fv.fds[fd].fd = -1;
@@ -238,15 +238,15 @@ static int ape_poll_set(apolld ipd, int fd, int mask)
 	ps->fv.fds[fd].mask = 0;
 
 	if (mask & APOLL_IN) {
-		ee.events |= EPOLLIN | EPOLLERR | EPOLLHUP;
+		ee.events |= EPOLLIN;
 		ps->fv.fds[fd].mask |= APOLL_IN;
 	}
 	if (mask & APOLL_OUT) {
-		ee.events |= EPOLLOUT | EPOLLERR;
+		ee.events |= EPOLLOUT;
 		ps->fv.fds[fd].mask |= APOLL_OUT;
 	}
 	if (mask & APOLL_ERR) {
-		ee.events |= EPOLLERR;
+		ee.events |= EPOLLERR | EPOLLHUP;
 		ps->fv.fds[fd].mask |= APOLL_ERR;
 	}
 
