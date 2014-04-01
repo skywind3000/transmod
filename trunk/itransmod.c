@@ -352,6 +352,10 @@ int itm_startup(void)
 		itm_headlen = 14;
 		itm_hdrsize = 4;
 		break;
+	case ITMH_LINESPLIT:
+		itm_headlen = 14;
+		itm_hdrsize = 4;
+		break;
 	default:
 		itm_headmod = ITMH_WORDLSB;
 		itm_headlen = 12;
@@ -369,10 +373,20 @@ int itm_startup(void)
 		itm_headinc = itm_hdrsize;
 		itm_headmsk = 0;
 	}
-	else if (itm_headmod < ITMH_RAWDATA) {
+	else if (itm_headmod == ITMH_DWORDMASK) {
 		itm_headint = ITMH_DWORDLSB;
 		itm_headinc = 0;
 		itm_headmsk = 1;
+	}
+	else if (itm_headmod == ITMH_RAWDATA) {
+		itm_headint = ITMH_DWORDLSB;
+		itm_headinc = 0;
+		itm_headmsk = 0;
+	}
+	else if (itm_headmod == ITMH_LINESPLIT) {
+		itm_headint = ITMH_DWORDLSB;
+		itm_headinc = 0;
+		itm_headmsk = 0;
 	}
 	else {
 		itm_headint = ITMH_DWORDLSB;
@@ -1102,8 +1116,35 @@ long itm_tryrecv(struct ITMD *itmd)
 		}
 		#endif
 
-		val = ims_write(stream, itm_zdata, ret);
-		assert(val == ret);
+		if (itm_headmod != ITMH_LINESPLIT || itmd->mode != ITMD_OUTER_CLIENT) {
+			val = ims_write(stream, itm_zdata, ret);
+			assert(val == ret);
+		}	else {
+			struct IMSTREAM *lines = &itmd->lstream;
+			long start = 0, pos = 0;
+			char head[4];
+			for (start = 0, pos = 0; pos < ret; pos++) {
+				if (itm_zdata[pos] == '\n') {
+					long x = pos - start + 1;
+					long y = lines->size;
+					iencode32u_lsb(head, x + y + 4);
+					ims_write(stream, head, 4);
+					while (lines->size > 0) {
+						long csize;
+						void *ptr;
+						csize = ims_rptr(lines, &ptr);
+						ims_write(stream, ptr, csize);
+						ims_drop(lines, csize);
+					}
+					ims_write(stream, &itm_zdata[start], x);
+					start = pos + 1;
+				}
+			}
+			if (pos > start) {
+				ims_write(lines, &itm_zdata[start], pos - start);
+			}
+			val = ret;
+		}
 
 		total += val;
 		if (itm_fastmode != 0 && ret < ITM_BUFSIZE) break;
