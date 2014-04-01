@@ -3,12 +3,6 @@
 // TML <Transmod Library>, by skywind 2004, itransmod.h
 //
 // HISTORY:
-// Dec. 25 2004   skywind  created and implement tcp operation
-// Aug. 19 2005   skywind  implement udp operation
-// Oct. 27 2005   skywind  interface add set nodelay in SYSCD
-// Nov. 25 2005   skywind  extend connection close status
-// Dec. 02 2005   skywind  implement channel timer event
-// Dec. 17 2005   skywind  implement ioctl event
 // Apr. 27 2010   skywind  fixed: when sys-timer changed, maybe error
 // Mar. 15 2011   skywind  64bit support, header size configurable
 // Jun. 25 2011   skywind  implement channel subscribe
@@ -18,6 +12,7 @@
 // Dec. 28 2011   skywind  rc4 enchance (v2.44)
 // Mar. 03 2012   skywind  raw data header (v2.45)
 // Dec. 01 2013   skywind  solaris /dev/poll supported (v2.64)
+// Apr. 01 2014   skywind  new ITMH_LINESPLIT (v2.65)
 //
 // NOTES： 
 // 网络传输库 TML<传输模块>，建立 客户/频道的通信模式，提供基于多频道
@@ -47,7 +42,7 @@
 extern "C" {
 #endif
 
-#define ITMV_VERSION 0x264	// 传输模块版本号
+#define ITMV_VERSION 0x265	// 传输模块版本号
 
 //=====================================================================
 // Global Variables Definition
@@ -174,6 +169,7 @@ struct ITMD
 	long disable;				// 是否禁止
 	struct IVQNODE wnode;		// 等待队列中的节点
 	struct IVQUEUE waitq;		// 等待队列
+	struct IMSTREAM lstream;	// 行分割流
 	struct IMSTREAM rstream;	// 读入流
 	struct IMSTREAM wstream;	// 写出流
 	unsigned long cnt_tcpr;		// TCP接收计数器
@@ -449,6 +445,7 @@ void itm_lltoa(char *dst, apr_int64 x);
 #define ITMH_EBYTEMSB	11		// 头部标志：单字节MSB（不包含自己）
 #define ITMH_DWORDMASK	12		// 头部标志：4字节LSB（包含自己和掩码）
 #define ITMH_RAWDATA	13		// 头部标志：对外无头部，对内4字节LSB
+#define ITMH_LINESPLIT	14		// 头部标志：对外无头部，按行分割，对内4字节LSB
 
 
 #define ITML_BASE		0x01	// 日志代码：基本

@@ -43,7 +43,7 @@ int itm_event_accept(int hmode)
 #endif
 	struct ITMD *itmd, *channel;
 	int sock = -1, node = 0, retval;
-	int r1, r2, result = 0;
+	int r1, r2, r3, result = 0;
 	unsigned long noblock = 1;
 	unsigned long revalue = 1;
 	unsigned long bufsize = 0;
@@ -203,11 +203,12 @@ int itm_event_accept(int hmode)
 
 	r1 = ims_init(&itmd->rstream, &itm_mem);
 	r2 = ims_init(&itmd->wstream, &itm_mem);
+	r3 = ims_init(&itmd->lstream, &itm_mem);
 
 	itmd->timeid = ITMD_HOST_IS_OUTER(hmode)? 
 					idt_newtime(&itm_timeu, itmd->hid) : idt_newtime(&itm_timec, itmd->hid);
 
-	if (itmd->timeid < 0 || r1 || r2) {
+	if (itmd->timeid < 0 || r1 || r2 || r3) {
 		itm_log(ITML_ERROR, "[ERROR] memory stream or collection set error for %s", epname);
 		itm_event_close(itmd, 4001);
 		return 0;
@@ -321,6 +322,7 @@ int itm_event_close(struct ITMD *itmd, int code)
 	if (itmd->initok) apr_poll_del(itm_polld, itmd->fd);
 	if (itmd->rstream.pool) ims_destroy(&itmd->rstream);
 	if (itmd->wstream.pool) ims_destroy(&itmd->wstream);
+	if (itmd->lstream.pool) ims_destroy(&itmd->lstream);
 	if (itmd->timeid >= 0) {
 		idt_remove((mode == ITMD_OUTER_CLIENT)? &itm_timeu : &itm_timec, itmd->timeid);
 		itmd->timeid = -1;
@@ -879,8 +881,8 @@ int itm_on_data(struct ITMD *itmd, long wparam, long lparam, long length)
 		long sendlen;
 		char *data;
 
-		// 判断是否是 RAWDATA模式：
-		if (itm_headmod != ITMH_RAWDATA) {
+		// 判断是否是 RAWDATA, LINESPLIT模式：
+		if (itm_headmod < ITMH_RAWDATA) {
 			data = ptr;
 			sendlen = dlength + itm_hdrsize;
 		}	else {
