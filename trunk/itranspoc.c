@@ -554,7 +554,7 @@ int itm_event_recv(struct ITMD *itmd)
 			retval = itm_data_outer(itmd);
 		}
 		if (retval < 0) { 
-			itm_event_close(itmd, 2001); 
+			itm_event_close(itmd, 2003); 
 			break; 
 		}
 	}
