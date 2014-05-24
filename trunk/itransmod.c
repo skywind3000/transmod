@@ -1073,7 +1073,7 @@ long itm_trysend(struct ITMD *itmd)
 		len = ims_rptr(stream, &lptr); 
 		if (len == 0) break;
 		ret = send(fd, (const char*)lptr, len, 0);
-		if (ret == 0) ret = -1;
+		if (ret == 0) break;
 		else if (ret < 0) {
 			itm_error = aprerrno;
 			ret = (itm_error == IEAGAIN || itm_error == 0)? 0 : -1;
