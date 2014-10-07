@@ -591,8 +591,6 @@ int apr_recvall(int sock, void *buf, long size)
 //---------------------------------------------------------------------
 int apr_win32_init(int sock)
 {
-	long mode = 1;
-
 	if (sock < 0) return -1;
 
 #if (defined(WIN32) || defined(_WIN32) || defined(_WIN64) || defined(WIN64))
@@ -620,9 +618,6 @@ int apr_win32_init(int sock)
 		}
 	}
 #endif
-
-	setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char*)&mode, sizeof(long));
-
 	return 0;
 }
 

@@ -130,7 +130,8 @@ extern apr_int64 itm_stat_send;			// 统计：发送了多少包
 extern apr_int64 itm_stat_recv;			// 统计：接收了多少包
 extern apr_int64 itm_stat_discard;		// 统计：放弃了多少个数据包
 
-extern int itm_noreuse;					// 禁止地址复用
+extern int itm_reuseaddr;			// 地址复用：0自动，1允许 2禁止
+extern int itm_reuseport;			// 端口复用：0自动，1允许 2禁止	
 
 
 //=====================================================================
