@@ -206,7 +206,8 @@ APR_MODULE(int) ctm_config(int item, long value, const char *text)
 	case CTMO_SOCKSNDO:  itm_socksndo = (long)value; break;
 	case CTMO_SOCKRCVO:  itm_sockrcvo = (long)value; break;
 	case CTMO_SOCKUDPB:  itm_dgram_blimit = (long)value; break;
-	case CTMO_NOREUSE:   itm_noreuse = (int)value; break;
+	case CTMO_REUSEADDR:   itm_reuseaddr = (int)value; break;
+	case CTMO_REUSEPORT:   itm_reuseport = (int)value; break;
 	}
 	return 0;
 }

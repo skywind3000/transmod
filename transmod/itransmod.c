@@ -150,7 +150,8 @@ apr_int64 itm_stat_send = 0;		// 统计：发送了多少包
 apr_int64 itm_stat_recv = 0;		// 统计：接收了多少包
 apr_int64 itm_stat_discard = 0;		// 统计：放弃了多少个数据包
 
-int itm_noreuse = 0;				// 禁止地址复用
+int itm_reuseaddr = 0;				// 地址复用：0自动，1允许 2禁止
+int itm_reuseport = 0;				// 端口复用：0自动，1允许 2禁止	
 
 char *itm_document = NULL;			// 文档变量
 long itm_docsize = 0;				// 文档长度
@@ -485,7 +486,8 @@ int itm_shutdown(void)
 static int itm_socket_create(void)
 {
 	unsigned long noblock1 = 1, noblock2 = 1, noblock3 = 1;
-	unsigned long revalue1 = 1, revalue2 = 1, revalue3 = 1;
+	unsigned long reuseaddr = 0;
+	unsigned long reuseport = 0;
 	unsigned long buffer1 = 0;
 	unsigned long buffer2 = 0;
 	struct sockaddr_in host_outer4;
@@ -532,12 +534,30 @@ static int itm_socket_create(void)
 	apr_ioctl(itm_inner_sock4, FIONBIO, &noblock2);
 	apr_ioctl(itm_dgram_sock4, FIONBIO, &noblock3);
 	
-	// 如果不禁止地址复用
-	if (itm_noreuse == 0) {
-		apr_setsockopt(itm_outer_sock4, SOL_SOCKET, SO_REUSEADDR, (char*)&revalue1, sizeof(revalue1));
-		apr_setsockopt(itm_inner_sock4, SOL_SOCKET, SO_REUSEADDR, (char*)&revalue2, sizeof(revalue2));
-		apr_setsockopt(itm_dgram_sock4, SOL_SOCKET, SO_REUSEADDR, (char*)&revalue3, sizeof(revalue3));
+	// 地址复用
+	if (itm_reuseaddr == 0) {
+	#if defined(WIN32) || defined(_WIN32) || defined(WIN64) || defined(_WIN64)
+		reuseaddr = 0;
+	#else
+		reuseaddr = 1;
+	#endif
 	}
+	else {
+		reuseaddr = (itm_reuseaddr == 1)? 1 : 0;
+	}
+
+	// 端口复用
+	reuseport = (itm_reuseport == 1)? 1 : 0;
+
+	apr_setsockopt(itm_outer_sock4, SOL_SOCKET, SO_REUSEADDR, (char*)&reuseaddr, sizeof(reuseaddr));
+	apr_setsockopt(itm_inner_sock4, SOL_SOCKET, SO_REUSEADDR, (char*)&reuseaddr, sizeof(reuseaddr));
+	apr_setsockopt(itm_dgram_sock4, SOL_SOCKET, SO_REUSEADDR, (char*)&reuseaddr, sizeof(reuseaddr));
+
+#ifdef SO_REUSEPORT
+	apr_setsockopt(itm_outer_sock4, SOL_SOCKET, SO_REUSEPORT, (char*)&reuseport, sizeof(reuseport));
+	apr_setsockopt(itm_inner_sock4, SOL_SOCKET, SO_REUSEPORT, (char*)&reuseport, sizeof(reuseport));
+	apr_setsockopt(itm_dgram_sock4, SOL_SOCKET, SO_REUSEPORT, (char*)&reuseport, sizeof(reuseport));
+#endif
 
 	buffer1 = itm_dgram_blimit;
 	buffer2 = itm_dgram_blimit;
@@ -602,7 +622,6 @@ static int itm_socket_create(void)
 	// 如果 IPv6外部端口允许
 	if (itm_outer_port6 >= 0) {
 		unsigned long noblock4 = 1;
-		unsigned long revalue4 = 1;
 		unsigned long enable4 = 1;
 		int size4 = sizeof(struct sockaddr_in6);
 
@@ -620,10 +639,13 @@ static int itm_socket_create(void)
 
 		apr_ioctl(itm_outer_sock6, FIONBIO, &noblock4);
 
-		if (itm_noreuse == 0) {
-			apr_setsockopt(itm_outer_sock6, SOL_SOCKET, SO_REUSEADDR, 
-				(char*)&revalue4, sizeof(revalue4));
-		}
+		apr_setsockopt(itm_outer_sock6, SOL_SOCKET, SO_REUSEADDR, 
+			(char*)&reuseaddr, sizeof(reuseaddr));
+
+	#ifdef SO_REUSEPORT
+		apr_setsockopt(itm_outer_sock6, SOL_SOCKET, SO_REUSEPORT, 
+			(char*)&reuseport, sizeof(reuseport));
+	#endif
 
 		if (apr_bind(itm_outer_sock6, (struct sockaddr*)&host_outer6, 
 			sizeof(host_outer6))) {
@@ -638,12 +660,12 @@ static int itm_socket_create(void)
 
 		apr_sockname(itm_outer_sock6, (struct sockaddr*)&host_outer6, &size4);
 		itm_outer_port6 = htons(host_outer6.sin6_port);
+		enable4 = enable4;
 	}
 
 	// 如果 IPv6内部端口允许
 	if (itm_inner_port6 >= 0) {
 		unsigned long noblock5 = 1;
-		unsigned long revalue5 = 1;
 		unsigned long enable5 = 1;
 		int size5 = sizeof(struct sockaddr_in6);
 
@@ -661,10 +683,13 @@ static int itm_socket_create(void)
 
 		apr_ioctl(itm_inner_sock6, FIONBIO, &noblock5);
 
-		if (itm_noreuse == 0) {
-			apr_setsockopt(itm_inner_sock6, SOL_SOCKET, SO_REUSEADDR, 
-				(char*)&revalue5, sizeof(revalue5));
-		}
+		apr_setsockopt(itm_inner_sock6, SOL_SOCKET, SO_REUSEADDR, 
+				(char*)&reuseaddr, sizeof(reuseaddr));
+	
+	#ifdef SO_REUSEPORT
+		apr_setsockopt(itm_inner_sock6, SOL_SOCKET, SO_REUSEPORT, 
+				(char*)&reuseport, sizeof(reuseport));
+	#endif
 
 		if (apr_bind(itm_inner_sock6, (struct sockaddr*)&host_inner6, 
 			sizeof(host_inner6))) {
@@ -679,12 +704,12 @@ static int itm_socket_create(void)
 
 		apr_sockname(itm_inner_sock6, (struct sockaddr*)&host_inner6, &size5);
 		itm_inner_port6 = htons(host_inner6.sin6_port);
+		enable5 = enable5;
 	}
 
 	// 如果 IPv6数据报端口允许
 	if (itm_dgram_port6 >= 0) {
 		unsigned long noblock6 = 1;
-		unsigned long revalue6 = 1;
 		unsigned long enable6 = 1;
 		int size6 = sizeof(struct sockaddr_in6);
 
@@ -702,10 +727,13 @@ static int itm_socket_create(void)
 
 		apr_ioctl(itm_dgram_sock6, FIONBIO, &noblock6);
 
-		if (itm_noreuse == 0) {
-			apr_setsockopt(itm_dgram_sock6, SOL_SOCKET, SO_REUSEADDR, 
-				(char*)&revalue6, sizeof(revalue6));
-		}
+		apr_setsockopt(itm_dgram_sock6, SOL_SOCKET, SO_REUSEADDR, 
+			(char*)&reuseaddr, sizeof(reuseaddr));
+
+	#ifdef SO_REUSEPORT
+		apr_setsockopt(itm_dgram_sock6, SOL_SOCKET, SO_REUSEPORT, 
+			(char*)&reuseport, sizeof(reuseport));
+	#endif
 
 		buffer1 = itm_dgram_blimit;
 		buffer2 = itm_dgram_blimit;
@@ -731,6 +759,7 @@ static int itm_socket_create(void)
 
 		apr_sockname(itm_dgram_sock6, (struct sockaddr*)&host_dgram6, &size6);
 		itm_dgram_port6 = htons(host_dgram6.sin6_port);
+		enable6 = enable6;
 	}
 
 	itmd_outer6.fd = itm_outer_sock6;
@@ -747,6 +776,8 @@ static int itm_socket_create(void)
 	#ifdef __unix
 	signal(SIGPIPE, SIG_IGN);
 	#endif
+	
+	reuseport = reuseport;
 
 	return 0;
 }
