@@ -104,7 +104,8 @@ APR_MODULE(long) ctm_errno(void);
 #define CTMO_LOGMK		82	// 日志报告掩码
 #define CTMO_INTERVAL	83	// 启动间隔模式
 #define CTMO_UTIME		84	// 客户端计时模式
-#define CTMO_NOREUSE	85	// 禁用套接字地址重用
+#define CTMO_REUSEADDR	85	// 套接字地址重用：0自动 1启用 2禁止
+#define CTMO_REUSEPORT	86	// 套接字端口重用：0自动 1启用 2禁止
 #define CTMO_SOCKSNDO	90	// 外部套接字发送缓存
 #define CTMO_SOCKRCVO	91	// 外部套接字接收缓存
 #define CTMO_SOCKSNDI	92	// 内部套接字发送缓存
