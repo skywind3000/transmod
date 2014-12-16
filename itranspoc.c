@@ -247,7 +247,12 @@ int itm_event_accept(int hmode)
 		if (channel == NULL) {
 			itm_log(ITML_ERROR, "[ERROR] connection refused: channel 0 does not exist");
 			itm_event_close(itmd, 2300);
-		}	else {
+		}
+		else if (channel->wstream.size > itm_inner_blimit) {
+			itm_log(ITML_ERROR, "[ERROR] connection refused: channel 0 is too busy");
+			itm_event_close(itmd, 2301);
+		}
+		else {
 			channel->ccnum++;
 			if (itmd->IsIPv6 == 0) {
 				itm_param_set(0, itm_headlen + 6, ITMT_NEW, itmd->hid, itmd->tag);
