@@ -514,6 +514,10 @@ static int itm_socket_create(void)
 		return -2;
 	}
 
+	apr_enable(itm_outer_sock4, APR_CLOEXEC);
+	apr_enable(itm_inner_sock4, APR_CLOEXEC);
+	apr_enable(itm_dgram_sock4, APR_CLOEXEC);
+
 	memset(&host_outer4, 0, sizeof(host_outer4));
 	memset(&host_inner4, 0, sizeof(host_inner4));
 	memset(&host_dgram4, 0, sizeof(host_dgram4));
@@ -647,6 +651,8 @@ static int itm_socket_create(void)
 			(char*)&reuseport, sizeof(reuseport));
 	#endif
 
+		apr_enable(itm_outer_sock6, APR_CLOEXEC);
+
 		if (apr_bind(itm_outer_sock6, (struct sockaddr*)&host_outer6, 
 			sizeof(host_outer6))) {
 			itm_socket_release();
@@ -690,6 +696,8 @@ static int itm_socket_create(void)
 		apr_setsockopt(itm_inner_sock6, SOL_SOCKET, SO_REUSEPORT, 
 				(char*)&reuseport, sizeof(reuseport));
 	#endif
+
+		apr_enable(itm_inner_sock6, APR_CLOEXEC);
 
 		if (apr_bind(itm_inner_sock6, (struct sockaddr*)&host_inner6, 
 			sizeof(host_inner6))) {
@@ -744,6 +752,8 @@ static int itm_socket_create(void)
 			apr_setsockopt(itm_dgram_sock6, SOL_SOCKET, SO_SNDBUF,
 				(char*)&buffer2, sizeof(buffer2));
 		}
+
+		apr_enable(itm_dgram_sock6, APR_CLOEXEC);
 
 		if (apr_bind(itm_dgram_sock6, (struct sockaddr*)&host_dgram6, 
 			sizeof(host_dgram6))) {

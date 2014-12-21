@@ -21,6 +21,8 @@
 #ifdef APHAVE_KQUEUE
 #include <sys/event.h>
 #include <stdio.h>
+#include <unistd.h>
+#include <fcntl.h>
 #include <assert.h>
 
 static int apk_startup(void);
@@ -112,6 +114,10 @@ static int apk_init_pd(apolld ipd, int param)
 	PSTRUCT *ps = PDESC(ipd);
 	ps->kqueue = kqueue();
 	if (ps->kqueue < 0) return -1;
+
+#ifdef FD_CLOEXEC
+	fcntl(ps->kqueue, F_SETFD, FD_CLOEXEC);
+#endif
 
 	iv_init(&ps->vchange, NULL);
 	iv_init(&ps->vresult, NULL);
