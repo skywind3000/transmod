@@ -33,6 +33,7 @@
 #ifndef __AVM3__
 #include <poll.h>
 #include <netinet/tcp.h>
+#include <fcntl.h>
 #endif
 
 #if defined(__sun)
@@ -443,6 +444,14 @@ int apr_enable(int fd, int mode)
 		retval = -1000;
 		#endif
 		break;
+	case APR_CLOEXEC:
+		#ifdef FD_CLOEXEC
+		value = fcntl(fd, F_GETFD);
+		retval = fcntl(fd, F_SETFD, FD_CLOEXEC | value);
+		#else
+		retval = -1000;
+		#endif
+		break;
 	}
 
 	return retval;
@@ -470,6 +479,15 @@ int apr_disable(int fd, int mode)
 	case APR_NOPUSH:
 		#ifdef TCP_NOPUSH
 		retval = apr_setsockopt(fd, (int)IPPROTO_TCP, TCP_NOPUSH, (char*)&value, sizeof(value));
+		#else
+		retval = -1000;
+		#endif
+		break;
+	case APR_CLOEXEC:
+		#ifdef FD_CLOEXEC
+		value = fcntl(fd, F_GETFD);
+		value &= ~FD_CLOEXEC;
+		retval = fcntl(fd, F_SETFD, value);
 		#else
 		retval = -1000;
 		#endif

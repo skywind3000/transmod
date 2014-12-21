@@ -296,6 +296,7 @@ typedef SOCKET Socket;
 #define APR_REUSEADDR	2		// 标志：地址复用
 #define APR_NODELAY		3		// 标志：立即发送
 #define APR_NOPUSH		4		// 标志：塞子操作
+#define APR_CLOEXEC		5		// 标志：执行关闭
 
 #define APR_ERECV		1		// 网络事件：捕获输入
 #define APR_ESEND		2		// 网络事件：捕获输出
