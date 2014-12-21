@@ -87,6 +87,8 @@ int itm_event_accept(int hmode)
 		return -1;
 	}
 
+	apr_enable(sock, APR_CLOEXEC);
+
 	if (ITMD_HOST_IS_OUTER(hmode)) {
 		if (itm_outer_cnt >= itm_outer_max) {
 			apr_close(sock);

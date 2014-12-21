@@ -24,6 +24,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/epoll.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 #ifndef APR_EPOLL_LIMIT
 #define APR_EPOLL_LIMIT 20000
@@ -110,6 +112,10 @@ static int ape_init_pd(apolld ipd, int param)
 	PSTRUCT *ps = PDESC(ipd);
 	ps->epfd = epoll_create(param);
 	if (ps->epfd < 0) return -1;
+
+#ifdef FD_CLOEXEC
+	fcntl(ps->epfd, F_SETFD, FD_CLOEXEC);
+#endif
 
 	iv_init(&ps->vresult, NULL);
 	apr_poll_fvinit(&ps->fv, NULL);
