@@ -420,8 +420,15 @@ static int apu_poll_event(apolld ipd, int *fd, int *event, void **user)
 	if (revents & POLLERR)eventx |= APOLL_ERR;
 
 	n = pfd->fd;
-	if (ps->fv.fds[n].fd < 0) eventx = 0;
-	eventx &= ps->fv.fds[n].mask;
+	if (ps->fv.fds[n].fd < 0) {
+		eventx = 0;
+		apu_changes_push(ipd, n, POLLREMOVE);
+	}	else {
+		eventx &= ps->fv.fds[n].mask;
+		if (eventx == 0) {
+			apu_poll_set(ipd, n, ps->fv.fds[n].mask);
+		}
+	}
 
 	if (fd) *fd = n;
 	if (event) *event = eventx;
