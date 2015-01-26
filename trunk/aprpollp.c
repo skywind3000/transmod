@@ -164,7 +164,7 @@ static int app_poll_add(apolld ipd, int fd, int mask, void *user)
 		i = (ps->pnum_max <= 0)? 4 : ps->pnum_max * 2;
 		retval = iv_resize(&ps->vpollfd, sizeof(struct pollfd) * i);
 		if (retval) return -3;
-		retval = iv_resize(&ps->vresultq, sizeof(struct pollfd) * i);
+		retval = iv_resize(&ps->vresultq, sizeof(struct pollfd) * i * 2);
 		if (retval) return -4;
 		ps->pnum_max = i;
 		ps->pfds = (struct pollfd*)ps->vpollfd.data;
