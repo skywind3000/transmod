@@ -111,7 +111,7 @@ static int app_init_pd(apolld ipd, int param)
 	ps->pnum_cnt = 0;
 	ps->result_num = -1;
 	ps->result_cur = -1;
-	param = param;
+	param = param + 10;
 
 	return 0;
 }
