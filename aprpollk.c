@@ -129,7 +129,7 @@ static int apk_init_pd(apolld ipd, int param)
 	ps->num_chg= 0;
 	ps->usr_len = 0;
 	ps->stimeval = -1;
-	param = param;
+	param = param + 10;
 
 	if (apk_grow(ps, 4, 4)) {
 		apk_destroy_pd(ipd);

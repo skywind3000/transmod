@@ -178,6 +178,8 @@ static int apu_init_pd(apolld ipd, int param)
 		return -3;
 	}
 
+	param = param + 1;
+
 	return 0;
 }
 
